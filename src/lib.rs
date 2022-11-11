@@ -15,7 +15,7 @@ impl Instruction {
     const HEX_0: u16 = 0x000F;
     const HEX_1: u16 = 0x00F0;
     const HEX_2: u16 = 0x0F00;
-    const HEX_3: u16 = 0xF000;
+    const HEX_01: u16 = Instruction::HEX_0 | Instruction::HEX_1;    // 0x00FF
     const HEX_12: u16 = Instruction::HEX_1 | Instruction::HEX_2;    // 0x0FF0
     const HEX_012: u16 = Instruction::HEX_0 | Instruction::HEX_12;  // 0x0FFF
 
@@ -31,6 +31,14 @@ impl Instruction {
 
     fn todo(core: &mut Chip8Core, args: HashMap<&'static str, u16>) {
         todo!()
+    }
+
+    /// Store `NN` in register `VX`
+    fn mov(core: &mut Chip8Core, args: HashMap<&'static str, u16>) {
+        let x = args.get("X").unwrap();
+        let n = args.get("N").unwrap();
+
+        core.cpu.registers[*x as usize] = *n as u8;
     }
 }
 
@@ -53,6 +61,12 @@ impl Cpu {
 
     fn create_instructions() -> HashMap<u16, Instruction> {
         let mut instructions = HashMap::new();
+
+        instructions.insert(0x6000, Instruction {
+            name: "MOV",
+            arg_masks: HashMap::from([("X", Instruction::HEX_2), ("N", Instruction::HEX_01)]),
+            callback: Instruction::mov,
+        });
 
         instructions.insert(0x8000, Instruction {
             name: "MOVR",
