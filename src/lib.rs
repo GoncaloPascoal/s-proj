@@ -5,6 +5,7 @@ use libretro_rs::{libretro_core, RetroCore, RetroEnvironment, RetroGame,
     RetroLoadGameResult, RetroRuntime, RetroSystemInfo};
 
 struct Instruction {
+    name: &'static str,
     arg_masks: HashMap<&'static str, u16>,
     callback: fn(&mut Chip8Core, HashMap<&'static str, u16>),
 }
@@ -53,13 +54,15 @@ impl Cpu {
     fn create_instructions() -> HashMap<u16, Instruction> {
         let mut instructions = HashMap::new();
 
-        instructions.insert(0xA000, Instruction {
-            arg_masks: HashMap::from([("N", Instruction::HEX_012)]),
+        instructions.insert(0x8000, Instruction {
+            name: "MOVR",
+            arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
             callback: Instruction::todo,
         });
 
-        instructions.insert(0x8000, Instruction {
-            arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
+        instructions.insert(0xA000, Instruction {
+            name: "MOVI",
+            arg_masks: HashMap::from([("N", Instruction::HEX_012)]),
             callback: Instruction::todo,
         });
 
