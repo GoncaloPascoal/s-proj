@@ -1,5 +1,5 @@
 
-use std::{collections::HashMap, ops::{Shr, ShrAssign}};
+use std::{collections::HashMap, ops::{Shr, ShrAssign}, intrinsics::wrapping_add};
 
 use libretro_rs::{libretro_core, RetroCore, RetroEnvironment, RetroGame,
     RetroLoadGameResult, RetroRuntime, RetroSystemInfo};
@@ -134,6 +134,16 @@ impl Chip8Core {
         self.cpu.registers[x] = n;
     }
 
+    /// Add `NN` to register `VX`
+    fn add(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+        let n = *args.get("N").unwrap() as u8;
+
+        let x_val = self.cpu.registers[x];
+
+        self.cpu.registers[x] = wrapping_add(x_val, n);
+    }
+
     /// Store value of register `VY` in register `VX`
     fn movr(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
@@ -149,6 +159,16 @@ impl Chip8Core {
         let n = *args.get("N").unwrap() as u16;
 
         self.cpu.i_register = n;
+    }
+
+    /// Add value of register `VX` to register `I`
+    fn addi(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+
+        let x_val = self.cpu.registers[x];
+        let i_val: u8 = self.cpu.i_register;
+
+        self.cpu.i_register = wrapping_add(x_val, i_val);
     }
 
     /// Store value of `VY` in `VX` shifted right one bit. Set `VF` to least
@@ -175,6 +195,14 @@ impl Chip8Core {
         // Store most significant bit in VF
         self.cpu.registers[0xF] = (y_val & 0x80) >> 7;
         self.cpu.registers[x] = y_val << 1;
+    }
+
+    /// Set 'VX' to 'VX' OR 'VY'
+    fn or(&mut self, args: HashMap<&'static str, u16>) {
+        let x: usize = *args.get("X").unwrap() as usize;
+        let y = *args.get("Y").unwrap() as usize;
+
+        self.cpu.registers[x] |= self.cpu.registers[y];
     }
 
     /// Set `VX` to `VX` AND `VY`.
