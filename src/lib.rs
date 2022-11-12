@@ -59,7 +59,13 @@ impl Cpu {
         instructions.insert(0x8000, Instruction {
             name: "MOVR",
             arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
-            callback: Chip8Core::todo,
+            callback: Chip8Core::movr,
+        });
+
+        instructions.insert(0x8002, Instruction {
+            name: "AND",
+            arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
+            callback: Chip8Core::and,
         });
 
         instructions.insert(0x8003, Instruction {
@@ -80,10 +86,16 @@ impl Cpu {
             callback: Chip8Core::shr,
         });
 
+        instructions.insert(0x800E, Instruction {
+            name: "SHL",
+            arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
+            callback: Chip8Core::shl,
+        });
+
         instructions.insert(0xA000, Instruction {
             name: "MOVI",
             arg_masks: HashMap::from([("N", Instruction::HEX_012)]),
-            callback: Chip8Core::todo,
+            callback: Chip8Core::movi,
         });
 
         instructions
@@ -122,6 +134,23 @@ impl Chip8Core {
         self.cpu.registers[x] = n;
     }
 
+    /// Store value of register `VY` in register `VX`
+    fn movr(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+        let y = *args.get("Y").unwrap() as usize;
+
+        let y_val = self.cpu.registers[y];
+
+        self.cpu.registers[x] = y_val;
+    }
+
+    /// Store memory address `NNN` in register `I`
+    fn movi(&mut self, args: HashMap<&'static str, u16>) {
+        let n = *args.get("N").unwrap() as u16;
+
+        self.cpu.i_register = n;
+    }
+
     /// Store value of `VY` in `VX` shifted right one bit. Set `VF` to least
     /// significant bit prior to shift.
     fn shr(&mut self, args: HashMap<&'static str, u16>) {
@@ -133,6 +162,27 @@ impl Chip8Core {
         // Store least significant bit in VF
         self.cpu.registers[0xF] = y_val & 0x01;
         self.cpu.registers[x] = y_val >> 1;
+    }
+
+    /// Store value of `VY` in `VX` shifted left one bit. Set `VF` to most
+    /// significant bit prior to shift.
+    fn shl(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+        let y = *args.get("Y").unwrap() as usize;
+
+        let y_val = self.cpu.registers[y];
+
+        // Store most significant bit in VF
+        self.cpu.registers[0xF] = (y_val & 0x80) >> 7;
+        self.cpu.registers[x] = y_val << 1;
+    }
+
+    /// Set `VX` to `VX` AND `VY`.
+    fn and(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+        let y = *args.get("Y").unwrap() as usize;
+
+        self.cpu.registers[x] &= self.cpu.registers[y];
     }
 
     /// Set `VX` to `VX` XOR `VY`.
