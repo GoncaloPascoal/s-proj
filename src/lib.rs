@@ -126,6 +126,36 @@ impl Chip8Core {
         self.cpu.registers[0xF] = carry as u8;
     }
 
+    /// Subtract value of register `VY` from register `VX`. Set `VF` to `00` if a borrow
+    /// occurs, `01` otherwise.
+    fn subr(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+        let y = *args.get("Y").unwrap() as usize;
+
+        let x_val = self.cpu.registers[x];
+        let y_val = self.cpu.registers[y];
+
+        let (result, borrow) = x_val.borrowing_sub(y_val, false);
+
+        self.cpu.registers[x] = result;
+        self.cpu.registers[0xF] = !borrow as u8;
+    }
+
+    /// Set `VX` to value of `VY` minus `VX`. Set `VF` to `00` if a borrow
+    /// occurs, `01` otherwise.
+    fn rsubr(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+        let y = *args.get("Y").unwrap() as usize;
+
+        let x_val = self.cpu.registers[x];
+        let y_val = self.cpu.registers[y];
+
+        let (result, borrow) = y_val.borrowing_sub(x_val, false);
+
+        self.cpu.registers[x] = result;
+        self.cpu.registers[0xF] = !borrow as u8; /// !true = 0; !false = 1
+    }
+
     /// Store `NN` in register `VX`.
     fn mov(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
