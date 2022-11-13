@@ -1,5 +1,5 @@
 
-use std::{collections::HashMap, ops::{Shr, ShrAssign}, intrinsics::wrapping_add};
+use std::collections::HashMap;
 
 use libretro_rs::{libretro_core, RetroCore, RetroEnvironment, RetroGame,
     RetroLoadGameResult, RetroRuntime, RetroSystemInfo};
@@ -56,10 +56,22 @@ impl Cpu {
             callback: Chip8Core::mov,
         });
 
+        instructions.insert(0x7000, Instruction {
+            name: "ADD",
+            arg_masks: HashMap::from([("X", Instruction::HEX_2), ("N", Instruction::HEX_01)]),
+            callback: Chip8Core::add,
+        });
+
         instructions.insert(0x8000, Instruction {
             name: "MOVR",
             arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
             callback: Chip8Core::movr,
+        });
+
+        instructions.insert(0x8001, Instruction {
+            name: "OR",
+            arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
+            callback: Chip8Core::or,
         });
 
         instructions.insert(0x8002, Instruction {
@@ -80,10 +92,22 @@ impl Cpu {
             callback: Chip8Core::addr,
         });
 
+        instructions.insert(0x8005, Instruction {
+            name: "SUBR",
+            arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
+            callback: Chip8Core::subr,
+        });
+
         instructions.insert(0x8006, Instruction {
             name: "SHR",
             arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
             callback: Chip8Core::shr,
+        });
+
+        instructions.insert(0x8007, Instruction {
+            name: "RSUBR",
+            arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
+            callback: Chip8Core::rsubr,
         });
 
         instructions.insert(0x800E, Instruction {
@@ -98,6 +122,12 @@ impl Cpu {
             callback: Chip8Core::movi,
         });
 
+        instructions.insert(0xF01E, Instruction {
+            name: "ADDI",
+            arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
+            callback: Chip8Core::addi,
+        });
+
         instructions
     }
 }
@@ -107,10 +137,6 @@ struct Chip8Core {
 }
 
 impl Chip8Core {
-    fn todo(_core: &mut Chip8Core, _args: HashMap<&'static str, u16>) {
-        todo!()
-    }
-
     /// Add value of register `VY` to register `VX`. Set `VF` to `01` if carry
     /// occurs, `00` otherwise.
     fn addr(&mut self, args: HashMap<&'static str, u16>) {
@@ -135,7 +161,7 @@ impl Chip8Core {
         let x_val = self.cpu.registers[x];
         let y_val = self.cpu.registers[y];
 
-        let (result, borrow) = x_val.borrowing_sub(y_val, false);
+        let (result, borrow) = x_val.overflowing_sub(y_val);
 
         self.cpu.registers[x] = result;
         self.cpu.registers[0xF] = !borrow as u8;
@@ -150,10 +176,10 @@ impl Chip8Core {
         let x_val = self.cpu.registers[x];
         let y_val = self.cpu.registers[y];
 
-        let (result, borrow) = y_val.borrowing_sub(x_val, false);
+        let (result, borrow) = y_val.overflowing_sub(x_val);
 
         self.cpu.registers[x] = result;
-        self.cpu.registers[0xF] = !borrow as u8; /// !true = 0; !false = 1
+        self.cpu.registers[0xF] = !borrow as u8;
     }
 
     /// Store `NN` in register `VX`.
@@ -171,7 +197,7 @@ impl Chip8Core {
 
         let x_val = self.cpu.registers[x];
 
-        self.cpu.registers[x] = wrapping_add(x_val, n);
+        self.cpu.registers[x] = x_val.wrapping_add(n);
     }
 
     /// Store value of register `VY` in register `VX`
@@ -179,9 +205,7 @@ impl Chip8Core {
         let x = *args.get("X").unwrap() as usize;
         let y = *args.get("Y").unwrap() as usize;
 
-        let y_val = self.cpu.registers[y];
-
-        self.cpu.registers[x] = y_val;
+        self.cpu.registers[x] = self.cpu.registers[y];
     }
 
     /// Store memory address `NNN` in register `I`
@@ -195,10 +219,10 @@ impl Chip8Core {
     fn addi(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
 
-        let x_val = self.cpu.registers[x];
-        let i_val: u8 = self.cpu.i_register;
+        let x_val = self.cpu.registers[x] as u16;
+        let i_val = self.cpu.i_register;
 
-        self.cpu.i_register = wrapping_add(x_val, i_val);
+        self.cpu.i_register = i_val.wrapping_add(x_val);
     }
 
     /// Store value of `VY` in `VX` shifted right one bit. Set `VF` to least
