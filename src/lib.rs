@@ -5,7 +5,7 @@ use libretro_rs::{libretro_core, RetroCore, RetroEnvironment, RetroGame,
     RetroLoadGameResult, RetroRuntime, RetroSystemInfo};
 
 struct Instruction {
-    name: &'static str,
+    //name: &'static str,
     arg_masks: HashMap<&'static str, u16>,
     callback: fn(&mut Chip8Core, HashMap<&'static str, u16>),
 }
@@ -31,10 +31,11 @@ impl Instruction {
 }
 
 struct Cpu {
-    instructions: HashMap<u16, Instruction>,
+    instructions: HashMap<&'static str, Instruction>,
     registers: [u8; 16],
     i_register: u16,
     memory: [u8; 4 * 1024], // 4 KiB RAM
+    pc: u16,
 }
 
 impl Cpu {
@@ -44,91 +45,113 @@ impl Cpu {
             registers: [0; 16],
             i_register: 0,
             memory: [0; 4 * 1024],
+            pc: 0x200,
         }
     }
 
-    fn create_instructions() -> HashMap<u16, Instruction> {
+    fn create_instructions() -> HashMap<&'static str, Instruction> {
         let mut instructions = HashMap::new();
 
-        instructions.insert(0x6000, Instruction {
-            name: "MOV",
+        instructions.insert("MOV", Instruction {
             arg_masks: HashMap::from([("X", Instruction::HEX_2), ("N", Instruction::HEX_01)]),
             callback: Chip8Core::mov,
         });
 
-        instructions.insert(0x7000, Instruction {
-            name: "ADD",
+        instructions.insert("ADD", Instruction {
             arg_masks: HashMap::from([("X", Instruction::HEX_2), ("N", Instruction::HEX_01)]),
             callback: Chip8Core::add,
         });
 
-        instructions.insert(0x8000, Instruction {
-            name: "MOVR",
+        instructions.insert("MOVR", Instruction {
             arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
             callback: Chip8Core::movr,
         });
 
-        instructions.insert(0x8001, Instruction {
-            name: "OR",
+        instructions.insert("OR", Instruction {
             arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
             callback: Chip8Core::or,
         });
 
-        instructions.insert(0x8002, Instruction {
-            name: "AND",
+        instructions.insert("AND", Instruction {
             arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
             callback: Chip8Core::and,
         });
 
-        instructions.insert(0x8003, Instruction {
-            name: "XOR",
+        instructions.insert("XOR", Instruction {
             arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
             callback: Chip8Core::xor,
         });
 
-        instructions.insert(0x8004, Instruction {
-            name: "ADDR",
+        instructions.insert("ADDR", Instruction {
             arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
             callback: Chip8Core::addr,
         });
 
-        instructions.insert(0x8005, Instruction {
-            name: "SUBR",
+        instructions.insert("SUBR", Instruction {
             arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
             callback: Chip8Core::subr,
         });
 
-        instructions.insert(0x8006, Instruction {
-            name: "SHR",
+        instructions.insert("SHR", Instruction {
             arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
             callback: Chip8Core::shr,
         });
 
-        instructions.insert(0x8007, Instruction {
-            name: "RSUBR",
+        instructions.insert("RSUBR", Instruction {
             arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
             callback: Chip8Core::rsubr,
         });
 
-        instructions.insert(0x800E, Instruction {
-            name: "SHL",
+        instructions.insert("SHL", Instruction {
             arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
             callback: Chip8Core::shl,
         });
 
-        instructions.insert(0xA000, Instruction {
-            name: "MOVI",
+        instructions.insert("MOVI", Instruction {
             arg_masks: HashMap::from([("N", Instruction::HEX_012)]),
             callback: Chip8Core::movi,
         });
 
-        instructions.insert(0xF01E, Instruction {
-            name: "ADDI",
+        instructions.insert("ADDI", Instruction {
             arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
             callback: Chip8Core::addi,
         });
 
         instructions
+    }
+
+    fn instruction(&self, name: &str) -> &Instruction {
+        self.instructions.get(name).unwrap()
+    }
+
+    fn fetch_byte(&mut self) -> u8 {
+        let byte = self.memory[self.pc as usize];
+        self.pc += 1;
+        byte
+    }
+
+    /// Fetches a raw 16-bit instruction from memory. Instructions are stored in big
+    /// endian (most significant byte first).
+    fn fetch_instruction(&mut self) -> u16 {
+        let msb = self.fetch_byte() as u16;
+        let lsb = self.fetch_byte() as u16;
+
+        return (msb << u8::BITS) | lsb;
+    }
+
+    fn decode_instruction(&self, instruction: u16) -> &Instruction {
+        match instruction & 0xF000 {
+            0x6000 => self.instruction("MOV"),
+            0x7000 => self.instruction("ADD"),
+            0x8000 => match instruction & 0x000F {
+                0x0001 => self.instruction("OR"),
+                0x0002 => self.instruction("AND"),
+                0x0003 => self.instruction("XOR"),
+                _ => unreachable!()
+            }
+            0xA000 => self.instruction("MOVI"),
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -137,6 +160,13 @@ struct Chip8Core {
 }
 
 impl Chip8Core {
+    fn execute_instruction(&mut self) {
+        let raw_instruction = self.cpu.fetch_instruction();
+        let instruction = self.cpu.decode_instruction(raw_instruction);
+
+        (instruction.callback)(self, instruction.args(raw_instruction));
+    }
+
     /// Add value of register `VY` to register `VX`. Set `VF` to `01` if carry
     /// occurs, `00` otherwise.
     fn addr(&mut self, args: HashMap<&'static str, u16>) {
