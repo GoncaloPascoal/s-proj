@@ -147,9 +147,18 @@ impl Cpu {
                 0x0001 => self.instruction("OR"),
                 0x0002 => self.instruction("AND"),
                 0x0003 => self.instruction("XOR"),
+                0x0004 => self.instruction("ADDR"),
+                0x0005 => self.instruction("SUBR"),
+                0x0006 => self.instruction("SHR"),
+                0x0007 => self.instruction("RSUBR"),
+                0x000E => self.instruction("SHL"),
                 _ => unreachable!()
             }
             0xA000 => self.instruction("MOVI"),
+            0xF000 => match instruction & 0x00FF {
+                0x001E => self.instruction("ADDI"),
+                _ => unreachable!()
+            },
             _ => unreachable!(),
         }
     }
