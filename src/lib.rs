@@ -1,8 +1,9 @@
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fs};
 
 use libretro_rs::{libretro_core, RetroCore, RetroEnvironment, RetroGame,
-    RetroLoadGameResult, RetroRuntime, RetroSystemInfo};
+    RetroLoadGameResult, RetroRuntime, RetroSystemInfo, RetroAudioInfo,
+    RetroVideoInfo};
 
 use cpu::Cpu;
 
@@ -13,6 +14,10 @@ pub struct Chip8Core {
 }
 
 impl Chip8Core {
+    fn new() -> Self {
+        Self { cpu: Cpu::new() }
+    }
+
     fn execute_instruction(&mut self) {
         let raw_instruction = self.cpu.fetch_instruction();
         let instruction = self.cpu.decode_instruction(raw_instruction);
@@ -161,7 +166,7 @@ impl Chip8Core {
 
 impl RetroCore for Chip8Core {
     fn init(_env: &RetroEnvironment) -> Self {
-        Chip8Core { cpu: Cpu::new() }
+        Chip8Core::new()
     }
 
     fn get_system_info() -> RetroSystemInfo {
@@ -176,8 +181,27 @@ impl RetroCore for Chip8Core {
 
     }
 
-    fn load_game(&mut self, env: &RetroEnvironment, game: RetroGame) -> RetroLoadGameResult {
-        RetroLoadGameResult::Failure
+    fn load_game(&mut self, _env: &RetroEnvironment, game: RetroGame) -> RetroLoadGameResult {
+        let mut program_data = Vec::new();
+
+        match game {
+            RetroGame::None { meta: _ } => return RetroLoadGameResult::Failure,
+            RetroGame::Data { meta: _, data } => program_data.extend_from_slice(data),
+            RetroGame::Path { meta: _, path } => {
+                if let Ok(data) = fs::read(path) {
+                    program_data = data;
+                } else {
+                    return RetroLoadGameResult::Failure;
+                }
+            },
+        }
+
+        self.cpu.load_program(program_data.as_slice());
+
+        RetroLoadGameResult::Success {
+            audio: RetroAudioInfo::new(0.0),
+            video: RetroVideoInfo::new(60.0, 64, 32),
+        }
     }
 }
 

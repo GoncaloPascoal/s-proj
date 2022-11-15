@@ -38,14 +38,16 @@ pub struct Cpu {
 }
 
 impl Cpu {
+    const INITIAL_ADDR: u16 = 0x200;
+
     /// Create and initialize a new CPU instance.
-    pub fn new() -> Cpu {
-        Cpu {
-            instructions: Cpu::create_instructions(),
+    pub fn new() -> Self {
+        Self {
+            instructions: Self::create_instructions(),
             registers: [0; 16],
             i_register: 0,
             memory: [0; 4 * 1024],
-            pc: 0x200,
+            pc: Self::INITIAL_ADDR,
         }
     }
 
@@ -128,6 +130,19 @@ impl Cpu {
         let byte = self.memory[self.pc as usize];
         self.pc += 1;
         byte
+    }
+
+    /// Load a program into memory. Has no effect if the size of the program exceeds
+    /// the available memory.
+    pub fn load_program(&mut self, data: &[u8]) {
+        // TODO: change return type to signal an error when program is too large.
+
+        let addr = Self::INITIAL_ADDR as usize;
+        let program_size = data.len();
+
+        if program_size <= self.memory.len() - addr {
+            self.memory[addr..addr + program_size].copy_from_slice(data);
+        }
     }
 
     /// Fetches a raw 16-bit instruction from memory. Instructions are stored in big
