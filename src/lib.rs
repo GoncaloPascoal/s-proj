@@ -14,6 +14,12 @@ pub struct Chip8Core {
 }
 
 impl Chip8Core {
+    /// Number of video frames to display each second. Typically, a rate of 60Hz is used.
+    const FRAME_RATE: f64 = 60.0;
+    /// Number of CHIP-8 instruction executed per video frame. Frequency is equal
+    /// to `FRAME_RATE` * `INSTRUCTIONS_PER_FRAME`.
+    const INSTRUCTIONS_PER_FRAME: usize = 10;
+
     fn new() -> Self {
         Self { cpu: Cpu::new() }
     }
@@ -200,7 +206,7 @@ impl RetroCore for Chip8Core {
 
         RetroLoadGameResult::Success {
             audio: RetroAudioInfo::new(0.0),
-            video: RetroVideoInfo::new(60.0, 64, 32),
+            video: RetroVideoInfo::new(Self::FRAME_RATE, 64, 32),
         }
     }
 }
@@ -211,6 +217,17 @@ libretro_core!(Chip8Core);
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn add() {
+        let mut core = Chip8Core::new();
+
+        core.cpu.registers[0x2] = 200;
+        
+        core.add(HashMap::from([("X", 0x2), ("N", 100)]));
+
+        assert_eq!(core.cpu.registers[0x2], 44);
+    }
 
     #[test]
     fn addr() {

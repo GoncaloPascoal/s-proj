@@ -1,8 +1,11 @@
 
+pub mod disassembler;
+
 use std::collections::HashMap;
 use crate::Chip8Core;
 
 pub struct Instruction {
+    name: &'static str,
     arg_masks: HashMap<&'static str, u16>,
     pub callback: fn(&mut Chip8Core, HashMap<&'static str, u16>),
 }
@@ -51,74 +54,75 @@ impl Cpu {
     }
 
     fn create_instructions() -> HashMap<&'static str, Instruction> {
-        let mut instructions = HashMap::new();
+        let instructions = vec![
+            Instruction {
+                name: "MOV",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2), ("N", Instruction::HEX_01)]),
+                callback: Chip8Core::mov,
+            },
+            Instruction {
+                name: "ADD",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2), ("N", Instruction::HEX_01)]),
+                callback: Chip8Core::add,
+            },
+            Instruction {
+                name: "MOVR",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
+                callback: Chip8Core::movr,
+            },
+            Instruction {
+                name: "OR",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
+                callback: Chip8Core::or,
+            },
+            Instruction {
+                name: "AND",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
+                callback: Chip8Core::and,
+            },
+            Instruction {
+                name: "XOR",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
+                callback: Chip8Core::xor,
+            },
+            Instruction {
+                name: "ADDR",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
+                callback: Chip8Core::addr,
+            },
+            Instruction {
+                name: "SUBR",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
+                callback: Chip8Core::subr,
+            },
+            Instruction {
+                name: "SHR",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
+                callback: Chip8Core::shr,
+            },
+            Instruction {
+                name: "RSUBR",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
+                callback: Chip8Core::rsubr,
+            },
+            Instruction {
+                name: "SHL",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
+                callback: Chip8Core::shl,
+            },
+            Instruction {
+                name: "MOVI",
+                arg_masks: HashMap::from([("N", Instruction::HEX_012)]),
+                callback: Chip8Core::movi,
+            },
+            Instruction {
+                name: "ADDI",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
+                callback: Chip8Core::addi,
+            },
+        ];
 
-        instructions.insert("MOV", Instruction {
-            arg_masks: HashMap::from([("X", Instruction::HEX_2), ("N", Instruction::HEX_01)]),
-            callback: Chip8Core::mov,
-        });
-
-        instructions.insert("ADD", Instruction {
-            arg_masks: HashMap::from([("X", Instruction::HEX_2), ("N", Instruction::HEX_01)]),
-            callback: Chip8Core::add,
-        });
-
-        instructions.insert("MOVR", Instruction {
-            arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
-            callback: Chip8Core::movr,
-        });
-
-        instructions.insert("OR", Instruction {
-            arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
-            callback: Chip8Core::or,
-        });
-
-        instructions.insert("AND", Instruction {
-            arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
-            callback: Chip8Core::and,
-        });
-
-        instructions.insert("XOR", Instruction {
-            arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
-            callback: Chip8Core::xor,
-        });
-
-        instructions.insert("ADDR", Instruction {
-            arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
-            callback: Chip8Core::addr,
-        });
-
-        instructions.insert("SUBR", Instruction {
-            arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
-            callback: Chip8Core::subr,
-        });
-
-        instructions.insert("SHR", Instruction {
-            arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
-            callback: Chip8Core::shr,
-        });
-
-        instructions.insert("RSUBR", Instruction {
-            arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
-            callback: Chip8Core::rsubr,
-        });
-
-        instructions.insert("SHL", Instruction {
-            arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
-            callback: Chip8Core::shl,
-        });
-
-        instructions.insert("MOVI", Instruction {
-            arg_masks: HashMap::from([("N", Instruction::HEX_012)]),
-            callback: Chip8Core::movi,
-        });
-
-        instructions.insert("ADDI", Instruction {
-            arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
-            callback: Chip8Core::addi,
-        });
-
-        instructions
+        instructions.into_iter().map(|i| (i.name, i)).collect()
     }
 
     fn instruction(&self, name: &str) -> &Instruction {
@@ -160,6 +164,7 @@ impl Cpu {
             0x6000 => self.instruction("MOV"),
             0x7000 => self.instruction("ADD"),
             0x8000 => match instruction & 0x000F {
+                0x0000 => self.instruction("MOVR"),
                 0x0001 => self.instruction("OR"),
                 0x0002 => self.instruction("AND"),
                 0x0003 => self.instruction("XOR"),
