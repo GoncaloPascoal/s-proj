@@ -31,6 +31,22 @@ impl Chip8Core {
         (instruction.callback)(self, instruction.args(raw_instruction));
     }
 
+    /// Jump to address `NNN`.
+    fn jmp(&mut self, args: HashMap<&'static str, u16>) {
+        let n = *args.get("N").unwrap();
+
+        self.cpu.pc = n;
+    }
+
+    /// Jump to address `NNN + V0`.
+    fn jmpr(&mut self, args: HashMap<&'static str, u16>) {
+        let n = *args.get("N").unwrap();
+        let reg_val = self.cpu.registers[0x0] as u16;
+        let mem_size = self.cpu.memory.len() as u16;
+
+        self.cpu.pc = (n + reg_val) % mem_size;
+    }
+
     /// Add value of register `VY` to register `VX`. Set `VF` to `01` if carry
     /// occurs, `00` otherwise.
     fn addr(&mut self, args: HashMap<&'static str, u16>) {
@@ -183,8 +199,14 @@ impl RetroCore for Chip8Core {
 
     }
 
-    fn run(&mut self, env: &RetroEnvironment, runtime: &RetroRuntime) {
+    fn run(&mut self, _env: &RetroEnvironment, runtime: &RetroRuntime) {
+        // TODO: Get input from user
 
+        for _ in 0..Self::INSTRUCTIONS_PER_FRAME {
+            self.execute_instruction();
+        }
+
+        // TODO: Upload video and/or audio frames
     }
 
     fn load_game(&mut self, _env: &RetroEnvironment, game: RetroGame) -> RetroLoadGameResult {

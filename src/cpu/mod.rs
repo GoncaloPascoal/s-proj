@@ -55,7 +55,12 @@ impl Cpu {
 
     fn create_instructions() -> HashMap<&'static str, Instruction> {
         let instructions = vec![
-            Instruction {
+            Instruction { // 1NNN
+                name: "JMP",
+                arg_masks: HashMap::from([("N", Instruction::HEX_012)]),
+                callback: Chip8Core::jmp,
+            },
+            Instruction { // 6XNN
                 name: "MOV",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2), ("N", Instruction::HEX_01)]),
                 callback: Chip8Core::mov,
@@ -115,6 +120,11 @@ impl Cpu {
                 arg_masks: HashMap::from([("N", Instruction::HEX_012)]),
                 callback: Chip8Core::movi,
             },
+            Instruction { // BNNN
+                name: "JMPR",
+                arg_masks: HashMap::from([("N", Instruction::HEX_012)]),
+                callback: Chip8Core::jmpr,
+            },
             Instruction {
                 name: "ADDI",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
@@ -161,6 +171,7 @@ impl Cpu {
     /// required afterwards in order to obtain the instruction arguments.
     pub fn decode_instruction(&self, instruction: u16) -> &Instruction {
         match instruction & 0xF000 {
+            0x1000 => self.instruction("JMP"),
             0x6000 => self.instruction("MOV"),
             0x7000 => self.instruction("ADD"),
             0x8000 => match instruction & 0x000F {
@@ -176,6 +187,7 @@ impl Cpu {
                 _ => unreachable!()
             }
             0xA000 => self.instruction("MOVI"),
+            0xB000 => self.instruction("JMPR"),
             0xF000 => match instruction & 0x00FF {
                 0x001E => self.instruction("ADDI"),
                 _ => unreachable!()
