@@ -324,4 +324,15 @@ mod tests {
         assert_eq!(core.cpu.registers[0x1], 0x2);
         assert_eq!(core.cpu.registers[0xF], 0x1);
     }
+
+    #[test]
+    fn jmpr() {
+        let mut core = Chip8Core::new();
+
+        core.cpu.registers[0x0] = 0x40;
+
+        core.jmpr(HashMap::from([("N", 0x300)]));
+
+        assert_eq!(core.cpu.pc, 0x340);
+    }
 }
