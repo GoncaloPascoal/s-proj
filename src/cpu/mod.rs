@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use crate::Chip8Core;
 
 pub struct Instruction {
-    //name: &'static str,
     arg_masks: HashMap<&'static str, u16>,
     pub callback: fn(&mut Chip8Core, HashMap<&'static str, u16>),
 }

@@ -206,3 +206,83 @@ impl RetroCore for Chip8Core {
 }
 
 libretro_core!(Chip8Core);
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn addr() {
+        let mut core = Chip8Core::new();
+
+        core.cpu.registers[0x2] = 25;
+        core.cpu.registers[0x3] = 42;
+        core.cpu.registers[0xF] = 33;
+
+        core.addr(HashMap::from([("X", 0x2), ("Y", 0x3)]));
+
+        assert_eq!(core.cpu.registers[0x2], 67);
+        assert_eq!(core.cpu.registers[0xF], 0);
+
+        core.cpu.registers[0x2] = 255;
+        core.cpu.registers[0x3] = 20;
+
+        core.addr(HashMap::from([("X", 0x2), ("Y", 0x3)]));
+
+        assert_eq!(core.cpu.registers[0x2], 19);
+        assert_eq!(core.cpu.registers[0xF], 1);
+    }
+
+    #[test]
+    fn movi() {
+        let mut core = Chip8Core::new();
+        let addr = 0x34E;
+
+        core.movi(HashMap::from([("N", addr)]));
+
+        assert_eq!(core.cpu.i_register, addr);
+    }
+
+    #[test]
+    fn rsubr() {
+        let mut core = Chip8Core::new();
+
+        core.cpu.registers[0x2] = 31;
+        core.cpu.registers[0x3] = 65;
+        core.cpu.registers[0xF] = 33;
+
+        core.rsubr(HashMap::from([("X", 0x2), ("Y", 0x3)]));
+
+        assert_eq!(core.cpu.registers[0x2], 34);
+        assert_eq!(core.cpu.registers[0xF], 1);
+
+        core.cpu.registers[0x2] = 31;
+        core.cpu.registers[0x3] = 20;
+
+        core.rsubr(HashMap::from([("X", 0x2), ("Y", 0x3)]));
+
+        assert_eq!(core.cpu.registers[0x2], 245);
+        assert_eq!(core.cpu.registers[0xF], 0);
+    }
+
+    #[test]
+    fn shl() {
+        let mut core = Chip8Core::new();
+
+        core.cpu.registers[0x2] = 0x01;
+        core.cpu.registers[0xF] = 33;
+
+        core.shl(HashMap::from([("X", 0x1), ("Y", 0x2)]));
+
+        assert_eq!(core.cpu.registers[0x1], 0x2);
+        assert_eq!(core.cpu.registers[0xF], 0x0);
+
+        core.cpu.registers[0x2] = 0x81;
+
+        core.shl(HashMap::from([("X", 0x1), ("Y", 0x2)]));
+
+        assert_eq!(core.cpu.registers[0x1], 0x2);
+        assert_eq!(core.cpu.registers[0xF], 0x1);
+    }
+}
