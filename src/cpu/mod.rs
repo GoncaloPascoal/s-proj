@@ -37,6 +37,7 @@ pub struct Cpu {
     pub i_register: u16,
     pub memory: [u8; 4 * 1024], // 4 KiB RAM
     pub pc: u16,
+    pub stack: Vec<u16>,
 }
 
 impl Cpu {
@@ -50,6 +51,7 @@ impl Cpu {
             i_register: 0,
             memory: [0; 4 * 1024],
             pc: Self::INITIAL_ADDR,
+            stack: Vec::with_capacity(64),
         }
     }
 
