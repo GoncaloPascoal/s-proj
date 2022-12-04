@@ -38,6 +38,26 @@ impl Chip8Core {
         self.cpu.pc = n;
     }
 
+    /// Execute subroutine starting at address `NNN`.
+    fn call(&mut self, args: HashMap<&'static str, u16>) {
+        let n = *args.get("N").unwrap();
+
+        self.cpu.stack.push(self.cpu.pc);
+        self.cpu.pc = n;
+    }
+
+    /// Skip following instruction if value of register `VX` equals `NN`.
+    fn skpeq(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+        let n = *args.get("N").unwrap() as u8;
+
+        let x_val = self.cpu.registers[x];
+
+        if x_val == n {
+            self.cpu.pc += 1;
+        }
+    }
+
     /// Jump to address `NNN + V0`.
     fn jmpr(&mut self, args: HashMap<&'static str, u16>) {
         let n = *args.get("N").unwrap();
@@ -183,6 +203,19 @@ impl Chip8Core {
         let y = *args.get("Y").unwrap() as usize;
 
         self.cpu.registers[x] ^= self.cpu.registers[y];
+    }
+
+    /// Store values of registers `V0` to `VX` in memory starting at address `I`,
+    /// which is set to `I + X + 1` after operation.
+    fn save(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+
+        let cpu = &mut self.cpu;
+
+        for reg in 0..=x {
+            cpu.memory[cpu.i_register as usize] = cpu.registers[reg];
+            cpu.i_register += 1;
+        }
     }
 }
 

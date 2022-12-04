@@ -62,6 +62,16 @@ impl Cpu {
                 arg_masks: HashMap::from([("N", Instruction::HEX_012)]),
                 callback: Chip8Core::jmp,
             },
+            Instruction { // 2NNN
+                name: "CALL",
+                arg_masks: HashMap::from([("N", Instruction::HEX_012)]),
+                callback: Chip8Core::call,
+            },
+            Instruction { // 3XNN
+                name: "SKPEQ",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2), ("N", Instruction::HEX_01)]),
+                callback: Chip8Core::skpeq,
+            },
             Instruction { // 6XNN
                 name: "MOV",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2), ("N", Instruction::HEX_01)]),
@@ -132,6 +142,11 @@ impl Cpu {
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
                 callback: Chip8Core::addi,
             },
+            Instruction { // FX55
+                name: "SAVE",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
+                callback: Chip8Core::save,
+            },
         ];
 
         instructions.into_iter().map(|i| (i.name, i)).collect()
@@ -174,6 +189,8 @@ impl Cpu {
     pub fn decode_instruction(&self, instruction: u16) -> &Instruction {
         match instruction & 0xF000 {
             0x1000 => self.instruction("JMP"),
+            0x2000 => self.instruction("CALL"),
+            0x3000 => self.instruction("SKPEQ"),
             0x6000 => self.instruction("MOV"),
             0x7000 => self.instruction("ADD"),
             0x8000 => match instruction & 0x000F {
@@ -192,6 +209,7 @@ impl Cpu {
             0xB000 => self.instruction("JMPR"),
             0xF000 => match instruction & 0x00FF {
                 0x001E => self.instruction("ADDI"),
+                0x0055 => self.instruction("SAVE"),
                 _ => unreachable!()
             },
             _ => unreachable!(),
