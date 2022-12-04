@@ -57,6 +57,16 @@ impl Cpu {
 
     fn create_instructions() -> HashMap<&'static str, Instruction> {
         let instructions = vec![
+            Instruction {
+                name: "NOP",
+                arg_masks: HashMap::new(),
+                callback: Chip8Core::nop,
+            },
+            Instruction { // 00E0
+                name: "CLS",
+                arg_masks: HashMap::new(),
+                callback: Chip8Core::cls,
+            },
             Instruction { // 1NNN
                 name: "JMP",
                 arg_masks: HashMap::from([("N", Instruction::HEX_012)]),
@@ -77,57 +87,57 @@ impl Cpu {
                 arg_masks: HashMap::from([("X", Instruction::HEX_2), ("N", Instruction::HEX_01)]),
                 callback: Chip8Core::mov,
             },
-            Instruction {
+            Instruction { // 7XNN
                 name: "ADD",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2), ("N", Instruction::HEX_01)]),
                 callback: Chip8Core::add,
             },
-            Instruction {
+            Instruction { // 8XY0
                 name: "MOVR",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
                 callback: Chip8Core::movr,
             },
-            Instruction {
+            Instruction { // 8XY1
                 name: "OR",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
                 callback: Chip8Core::or,
             },
-            Instruction {
+            Instruction { // 8XY2
                 name: "AND",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
                 callback: Chip8Core::and,
             },
-            Instruction {
+            Instruction { // 8XY3
                 name: "XOR",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
                 callback: Chip8Core::xor,
             },
-            Instruction {
+            Instruction { // 8XY4
                 name: "ADDR",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
                 callback: Chip8Core::addr,
             },
-            Instruction {
+            Instruction { // 8XY5
                 name: "SUBR",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
                 callback: Chip8Core::subr,
             },
-            Instruction {
+            Instruction { // 8XY6
                 name: "SHR",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
                 callback: Chip8Core::shr,
             },
-            Instruction {
+            Instruction { // 8XY7
                 name: "RSUBR",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
                 callback: Chip8Core::rsubr,
             },
-            Instruction {
+            Instruction { // 8XYE
                 name: "SHL",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
                 callback: Chip8Core::shl,
             },
-            Instruction {
+            Instruction { // ANNN
                 name: "MOVI",
                 arg_masks: HashMap::from([("N", Instruction::HEX_012)]),
                 callback: Chip8Core::movi,
@@ -137,7 +147,12 @@ impl Cpu {
                 arg_masks: HashMap::from([("N", Instruction::HEX_012)]),
                 callback: Chip8Core::jmpr,
             },
-            Instruction {
+            Instruction { // DXYN
+                name: "DRAW",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1), ("N", Instruction::HEX_0)]),
+                callback: Chip8Core::draw,
+            },
+            Instruction { // FX1E
                 name: "ADDI",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
                 callback: Chip8Core::addi,
@@ -187,7 +202,14 @@ impl Cpu {
     /// Decodes a raw 16-bit instruction. Note that the raw instruction is still
     /// required afterwards in order to obtain the instruction arguments.
     pub fn decode_instruction(&self, instruction: u16) -> &Instruction {
+        let nop = self.instruction("NOP");
+
         match instruction & 0xF000 {
+            0x0000 => match instruction & 0x00FF {
+                0x00E0 => self.instruction("CLS"),
+                // 0x00EE => self.instruction("RET"),
+                _ => nop,
+            },
             0x1000 => self.instruction("JMP"),
             0x2000 => self.instruction("CALL"),
             0x3000 => self.instruction("SKPEQ"),
@@ -203,16 +225,17 @@ impl Cpu {
                 0x0006 => self.instruction("SHR"),
                 0x0007 => self.instruction("RSUBR"),
                 0x000E => self.instruction("SHL"),
-                _ => unreachable!()
+                _ => nop,
             }
             0xA000 => self.instruction("MOVI"),
             0xB000 => self.instruction("JMPR"),
+            0xD000 => self.instruction("DRAW"),
             0xF000 => match instruction & 0x00FF {
                 0x001E => self.instruction("ADDI"),
                 0x0055 => self.instruction("SAVE"),
-                _ => unreachable!()
+                _ => nop,
             },
-            _ => unreachable!(),
+            _ => nop,
         }
     }
 }

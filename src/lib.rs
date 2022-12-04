@@ -4,16 +4,24 @@ use std::{collections::HashMap, fs};
 use libretro_rs::{libretro_core, RetroCore, RetroEnvironment, RetroGame,
     RetroLoadGameResult, RetroRuntime, RetroSystemInfo, RetroAudioInfo,
     RetroVideoInfo};
+use bitvec::prelude::*;
 
 use cpu::Cpu;
 
 pub mod cpu;
 
+type FrameBufferRow = BitArr!(for Chip8Core::SCREEN_WIDTH);
+type FrameBuffer = [FrameBufferRow; Chip8Core::SCREEN_HEIGHT];
+
 pub struct Chip8Core {
     cpu: Cpu,
+    frame_buffer: FrameBuffer,
 }
 
 impl Chip8Core {
+    const SCREEN_WIDTH: usize = 64;
+    const SCREEN_HEIGHT: usize = 32;
+
     /// Number of video frames to display each second. Typically, a rate of 60Hz is used.
     const FRAME_RATE: f64 = 60.0;
     /// Number of CHIP-8 instruction executed per video frame. Frequency is equal
@@ -21,7 +29,10 @@ impl Chip8Core {
     const INSTRUCTIONS_PER_FRAME: usize = 10;
 
     fn new() -> Self {
-        Self { cpu: Cpu::new() }
+        Self {
+            cpu: Cpu::new(),
+            frame_buffer: [BitArray::ZERO; Chip8Core::SCREEN_HEIGHT],
+        }
     }
 
     fn execute_instruction(&mut self) {
@@ -29,6 +40,18 @@ impl Chip8Core {
         let instruction = self.cpu.decode_instruction(raw_instruction);
 
         (instruction.callback)(self, instruction.args(raw_instruction));
+    }
+
+    /// No operation.
+    fn nop(&mut self, _args: HashMap<&'static str, u16>) {
+
+    }
+
+    /// Clear the screen.
+    fn cls(&mut self, _args: HashMap<&'static str, u16>) {
+        for row in &mut self.frame_buffer {
+            row.fill(false);
+        }
     }
 
     /// Jump to address `NNN`.
@@ -205,6 +228,41 @@ impl Chip8Core {
         self.cpu.registers[x] ^= self.cpu.registers[y];
     }
 
+    /// Draw a sprite at `(VX, VY)` with `N` bytes of sprite data starting at
+    /// address stored in `I`. Set `VF` to `01` if any pixels are set to black,
+    /// `00` otherwise.
+    fn draw(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+        let y = *args.get("Y").unwrap() as usize;
+        let n = *args.get("N").unwrap() as usize;
+
+        let x_val = self.cpu.registers[x] as usize % Self::SCREEN_WIDTH;
+        let y_val = self.cpu.registers[y] as usize % Self::SCREEN_HEIGHT;
+
+        // True if a white pixel was set to black when drawing the sprite.
+        let mut black = false;
+
+        for i in 0..n {
+            if y_val + i == Self::SCREEN_HEIGHT {
+                break;
+            }
+
+            let sprite_data = self.cpu.memory[self.cpu.i_register as usize + i];
+            let row = &mut self.frame_buffer[y_val + i];
+            let width = usize::min(8, Self::SCREEN_WIDTH - x_val);
+
+            for j in 0..width {
+                let mut screen_bit_ref = row.get_mut(x_val + j).unwrap();
+                let sprite_bit = *sprite_data.view_bits::<Msb0>().get(j).unwrap();
+
+                black |= *screen_bit_ref & sprite_bit;
+                screen_bit_ref.set(*screen_bit_ref ^ sprite_bit);
+            }
+        }
+
+        self.cpu.registers[0xF] = black as u8;
+    }
+
     /// Store values of registers `V0` to `VX` in memory starting at address `I`,
     /// which is set to `I + X + 1` after operation.
     fn save(&mut self, args: HashMap<&'static str, u16>) {
@@ -239,7 +297,23 @@ impl RetroCore for Chip8Core {
             self.execute_instruction();
         }
 
-        // TODO: Upload video and/or audio frames
+        let mut frame = [0; 2 * Self::SCREEN_WIDTH * Self::SCREEN_HEIGHT];
+        let mut i = 0;
+
+        for row in &self.frame_buffer {
+            for bit in row {
+                if *bit {
+                    frame[i] = 0xFF;
+                    frame[i + 1] = 0xFF;
+                }
+                i += 2;
+            }
+        }
+
+        runtime.upload_video_frame(&frame, Self::SCREEN_WIDTH as u32,
+            Self::SCREEN_HEIGHT as u32, 2 * Self::SCREEN_WIDTH);
+
+        // TODO: Upload audio frames
     }
 
     fn load_game(&mut self, _env: &RetroEnvironment, game: RetroGame) -> RetroLoadGameResult {
