@@ -172,7 +172,7 @@ impl Cpu {
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
                 callback: Chip8Core::save,
             },
-            Instruction {
+            Instruction { // FX65
                 name: "LOAD",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
                 callback: Chip8Core::load,

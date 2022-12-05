@@ -280,14 +280,11 @@ impl Chip8Core {
     /// Set `VX` to random number with mask `NN`
     fn rand(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
-        let n = *args.get("N").unwrap() as u16;
+        let n = *args.get("N").unwrap() as u8;
 
-        let mut rng = rand::thread_rng();
-        let rand_number = rng.gen_range(0..256);
-        
-        let masked_rand_number = rand_number & n;
+        let rand: u8 = rand::thread_rng().gen();
 
-        self.cpu.registers[x] = masked_rand_number as u8;
+        self.cpu.registers[x] = rand & n;
     }
 
     /// Store values of registers `V0` to `VX` in memory starting at address `I`,
