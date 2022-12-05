@@ -1,5 +1,6 @@
 
 use std::{collections::HashMap, fs};
+use rand::Rng;
 
 use libretro_rs::{libretro_core, RetroCore, RetroEnvironment, RetroGame,
     RetroLoadGameResult, RetroRuntime, RetroSystemInfo, RetroAudioInfo,
@@ -77,6 +78,19 @@ impl Chip8Core {
         let x_val = self.cpu.registers[x];
 
         if x_val == n {
+            self.cpu.pc += 1;
+        }
+    }
+
+    /// Skip following instruction if value of register `VX` is not equal to `VY`.
+    fn skpner(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+        let y = *args.get("Y").unwrap() as usize;
+
+        let x_val = self.cpu.registers[x];
+        let y_val = self.cpu.registers[y];
+
+        if x_val != y_val {
             self.cpu.pc += 1;
         }
     }
@@ -263,6 +277,19 @@ impl Chip8Core {
         self.cpu.registers[0xF] = black as u8;
     }
 
+    /// Set `VX` to random number with mask `NN`
+    fn rand(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+        let n = *args.get("N").unwrap() as u16;
+
+        let mut rng = rand::thread_rng();
+        let rand_number = rng.gen_range(0..256);
+        
+        let masked_rand_number = rand_number & n;
+
+        self.cpu.registers[x] = masked_rand_number as u8;
+    }
+
     /// Store values of registers `V0` to `VX` in memory starting at address `I`,
     /// which is set to `I + X + 1` after operation.
     fn save(&mut self, args: HashMap<&'static str, u16>) {
@@ -272,6 +299,19 @@ impl Chip8Core {
 
         for reg in 0..=x {
             cpu.memory[cpu.i_register as usize] = cpu.registers[reg];
+            cpu.i_register += 1;
+        }
+    }
+
+    /// Fill registers `V0` to `VX` with memory values starting at address I,
+    /// which is set to `I + X + 1` after operation.
+    fn load(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+
+        let cpu = &mut self.cpu;
+
+        for reg in 0..=x {
+            cpu.registers[reg] = cpu.memory[cpu.i_register as usize];
             cpu.i_register += 1;
         }
     }

@@ -82,6 +82,11 @@ impl Cpu {
                 arg_masks: HashMap::from([("X", Instruction::HEX_2), ("N", Instruction::HEX_01)]),
                 callback: Chip8Core::skpeq,
             },
+            Instruction { // 9XY0
+                name: "SKPNER",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
+                callback: Chip8Core::skpner,
+            },
             Instruction { // 6XNN
                 name: "MOV",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2), ("N", Instruction::HEX_01)]),
@@ -157,10 +162,20 @@ impl Cpu {
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
                 callback: Chip8Core::addi,
             },
+            Instruction { // CXNN
+                name: "RAND",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2), ("N", Instruction::HEX_01)]),
+                callback: Chip8Core::rand,
+            },
             Instruction { // FX55
                 name: "SAVE",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
                 callback: Chip8Core::save,
+            },
+            Instruction {
+                name: "LOAD",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
+                callback: Chip8Core::load,
             },
         ];
 
@@ -226,13 +241,16 @@ impl Cpu {
                 0x0007 => self.instruction("RSUBR"),
                 0x000E => self.instruction("SHL"),
                 _ => nop,
-            }
+            },
+            0x9000 => self.instruction("SKPNER"),
             0xA000 => self.instruction("MOVI"),
             0xB000 => self.instruction("JMPR"),
+            0xC000 => self.instruction("RAND"),
             0xD000 => self.instruction("DRAW"),
             0xF000 => match instruction & 0x00FF {
                 0x001E => self.instruction("ADDI"),
                 0x0055 => self.instruction("SAVE"),
+                0x0065 => self.instruction("LOAD"),
                 _ => nop,
             },
             _ => nop,
