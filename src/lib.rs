@@ -96,16 +96,15 @@ impl Chip8Core {
 
     /// Skip following instruction if value of register `VX` is equal to value of register `VY`.
     fn skpeqr(&mut self, args: HashMap<&'static str, u16>) {
-        fn skpner(&mut self, args: HashMap<&'static str, u16>) {
-            let x = *args.get("X").unwrap() as usize;
-            let y = *args.get("Y").unwrap() as usize;
-    
-            let x_val = self.cpu.registers[x];
-            let y_val = self.cpu.registers[y];
-    
-            if x_val == y_val {
-                self.cpu.pc += 1;
-            }
+        let x = *args.get("X").unwrap() as usize;
+        let y = *args.get("Y").unwrap() as usize;
+
+        let x_val = self.cpu.registers[x];
+        let y_val = self.cpu.registers[y];
+
+        if x_val == y_val {
+            self.cpu.pc += 1;
+        }
     }
 
     /// Skip following instruction if value of register `VX` is not equal to `VY`.
