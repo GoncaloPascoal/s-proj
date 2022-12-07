@@ -70,6 +70,16 @@ impl Chip8Core {
         self.cpu.pc = n;
     }
 
+    /// Return from a subroutine.
+    fn ret(&mut self) {
+        let stack_top = self.cpu.stack.pop();
+
+        // Safety for None value from pop
+        if stack_top.is_some() {
+            self.cpu.pc = stack_top;
+        } 
+    }
+
     /// Skip following instruction if value of register `VX` equals `NN`.
     fn skpeq(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
