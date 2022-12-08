@@ -85,7 +85,7 @@ impl Chip8Core {
         let x_val = self.cpu.registers[x];
 
         if x_val == n {
-            self.cpu.pc += 1;
+            self.cpu.pc += 2;
         }
     }
 
@@ -97,7 +97,7 @@ impl Chip8Core {
         let x_val = self.cpu.registers[x];
 
         if x_val != n {
-            self.cpu.pc += 1;
+            self.cpu.pc += 2;
         }
     }
 
@@ -110,7 +110,7 @@ impl Chip8Core {
         let y_val = self.cpu.registers[y];
 
         if x_val == y_val {
-            self.cpu.pc += 1;
+            self.cpu.pc += 2;
         }
     }
 
@@ -123,7 +123,7 @@ impl Chip8Core {
         let y_val = self.cpu.registers[y];
 
         if x_val != y_val {
-            self.cpu.pc += 1;
+            self.cpu.pc += 2;
         }
     }
 
