@@ -94,13 +94,8 @@ impl Cpu {
             },
             Instruction { // 5XY0
                 name: "SKPEQR",
-                arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_01)]),
-                callback: Chip8Core::skpeqr,
-            },
-            Instruction { // 9XY0
-                name: "SKPNER",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
-                callback: Chip8Core::skpner,
+                callback: Chip8Core::skpeqr,
             },
             Instruction { // 6XNN
                 name: "MOV",
@@ -156,6 +151,11 @@ impl Cpu {
                 name: "SHL",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
                 callback: Chip8Core::shl,
+            },
+            Instruction { // 9XY0
+                name: "SKPNER",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1)]),
+                callback: Chip8Core::skpner,
             },
             Instruction { // ANNN
                 name: "MOVI",

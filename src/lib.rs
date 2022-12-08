@@ -71,13 +71,10 @@ impl Chip8Core {
     }
 
     /// Return from a subroutine.
-    fn ret(&mut self) {
-        let stack_top = self.cpu.stack.pop();
-
-        // Safety for None value from pop
-        if stack_top.is_some() {
+    fn ret(&mut self, _args: HashMap<&'static str, u16>) {
+        if let Some(stack_top) = self.cpu.stack.pop() {
             self.cpu.pc = stack_top;
-        } 
+        }
     }
 
     /// Skip following instruction if value of register `VX` equals `NN`.
@@ -358,7 +355,7 @@ impl RetroCore for Chip8Core {
         RetroSystemInfo::new("CHIP-8 Emulator", "0.1.0")
     }
 
-    fn reset(&mut self, env: &RetroEnvironment) {
+    fn reset(&mut self, _env: &RetroEnvironment) {
 
     }
 
