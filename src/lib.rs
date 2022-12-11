@@ -196,7 +196,7 @@ impl Chip8Core {
         self.cpu.registers[x] = n;
     }
 
-    /// Add `NN` to register `VX`
+    /// Add `NN` to register `VX`.
     fn add(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
         let n = *args.get("N").unwrap() as u8;
@@ -206,7 +206,7 @@ impl Chip8Core {
         self.cpu.registers[x] = x_val.wrapping_add(n);
     }
 
-    /// Store value of register `VY` in register `VX`
+    /// Store value of register `VY` in register `VX`.
     fn movr(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
         let y = *args.get("Y").unwrap() as usize;
@@ -214,14 +214,14 @@ impl Chip8Core {
         self.cpu.registers[x] = self.cpu.registers[y];
     }
 
-    /// Store memory address `NNN` in register `I`
+    /// Store memory address `NNN` in register `I`.
     fn movi(&mut self, args: HashMap<&'static str, u16>) {
         let n = *args.get("N").unwrap() as u16;
 
         self.cpu.i_register = n;
     }
 
-    /// Add value of register `VX` to register `I`
+    /// Add value of register `VX` to register `I`.
     fn addi(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
 
@@ -229,6 +229,13 @@ impl Chip8Core {
         let i_val = self.cpu.i_register;
 
         self.cpu.i_register = i_val.wrapping_add(x_val);
+    }
+
+    /// Wait for keypress and store result in register `VX`.
+    fn key(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+
+        self.cpu.store_keypress = Some(x);
     }
 
     /// Store value of `VY` in `VX` shifted right one bit. Set `VF` to least
@@ -257,7 +264,7 @@ impl Chip8Core {
         self.cpu.registers[x] = y_val << 1;
     }
 
-    /// Set 'VX' to 'VX' OR 'VY'
+    /// Set 'VX' to 'VX' OR 'VY'.
     fn or(&mut self, args: HashMap<&'static str, u16>) {
         let x: usize = *args.get("X").unwrap() as usize;
         let y = *args.get("Y").unwrap() as usize;
@@ -316,7 +323,7 @@ impl Chip8Core {
         self.cpu.registers[0xF] = black as u8;
     }
 
-    /// Set `VX` to random number with mask `NN`
+    /// Set `VX` to random number with mask `NN`.
     fn rand(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
         let n = *args.get("N").unwrap() as u8;
@@ -373,7 +380,17 @@ impl RetroCore for Chip8Core {
         }
 
         for _ in 0..Self::INSTRUCTIONS_PER_FRAME {
+            if self.cpu.store_keypress.is_some() {
+                break;
+            }
             self.execute_instruction();
+        }
+
+        if let Some(reg) = self.cpu.store_keypress {
+            if let Some(val) = self.keypad_state.iter().position(|&pressed| pressed == true) {
+                self.cpu.registers[reg] = val as u8;
+                self.cpu.store_keypress = None;
+            }
         }
 
         let mut frame = [0; 2 * Self::SCREEN_WIDTH * Self::SCREEN_HEIGHT];

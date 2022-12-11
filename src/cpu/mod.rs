@@ -38,6 +38,7 @@ pub struct Cpu {
     pub memory: [u8; 4 * 1024], // 4 KiB RAM
     pub pc: u16,
     pub stack: Vec<u16>,
+    pub store_keypress: Option<usize>,
 }
 
 impl Cpu {
@@ -52,6 +53,7 @@ impl Cpu {
             memory: [0; 4 * 1024],
             pc: Self::INITIAL_ADDR,
             stack: Vec::with_capacity(64),
+            store_keypress: None,
         }
     }
 
@@ -172,6 +174,11 @@ impl Cpu {
                 arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1), ("N", Instruction::HEX_0)]),
                 callback: Chip8Core::draw,
             },
+            Instruction { // FX0A
+                name: "KEY",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
+                callback: Chip8Core::key,
+            },
             Instruction { // FX1E
                 name: "ADDI",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
@@ -265,6 +272,7 @@ impl Cpu {
             0xC000 => self.instruction("RAND"),
             0xD000 => self.instruction("DRAW"),
             0xF000 => match instruction & 0x00FF {
+                0x000A => self.instruction("KEY"),
                 0x001E => self.instruction("ADDI"),
                 0x0055 => self.instruction("SAVE"),
                 0x0065 => self.instruction("LOAD"),
