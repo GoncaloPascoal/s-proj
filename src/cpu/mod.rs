@@ -226,7 +226,7 @@ impl Cpu {
         let msb = self.fetch_byte() as u16;
         let lsb = self.fetch_byte() as u16;
 
-        return (msb << u8::BITS) | lsb;
+        (msb << u8::BITS) | lsb
     }
 
     /// Decodes a raw 16-bit instruction. Note that the raw instruction is still

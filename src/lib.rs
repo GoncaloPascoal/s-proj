@@ -4,12 +4,15 @@ use rand::Rng;
 
 use libretro_rs::{libretro_core, RetroCore, RetroEnvironment, RetroGame,
     RetroLoadGameResult, RetroRuntime, RetroSystemInfo, RetroAudioInfo,
-    RetroVideoInfo};
+    RetroVideoInfo, RetroPixelFormat, RetroRegion, RetroDevicePort};
 use bitvec::prelude::*;
+use strum::IntoEnumIterator;
 
 use cpu::Cpu;
+use input::Chip8Key;
 
 pub mod cpu;
+pub mod input;
 
 type FrameBufferRow = BitArr!(for Chip8Core::SCREEN_WIDTH);
 type FrameBuffer = [FrameBufferRow; Chip8Core::SCREEN_HEIGHT];
@@ -17,6 +20,7 @@ type FrameBuffer = [FrameBufferRow; Chip8Core::SCREEN_HEIGHT];
 pub struct Chip8Core {
     cpu: Cpu,
     frame_buffer: FrameBuffer,
+    keypad_state: [bool; Self::KEYPAD_SIZE],
 }
 
 impl Chip8Core {
@@ -29,10 +33,13 @@ impl Chip8Core {
     /// to `FRAME_RATE` * `INSTRUCTIONS_PER_FRAME`.
     const INSTRUCTIONS_PER_FRAME: usize = 10;
 
+    const KEYPAD_SIZE: usize = 16;
+
     fn new() -> Self {
         Self {
             cpu: Cpu::new(),
             frame_buffer: [BitArray::ZERO; Chip8Core::SCREEN_HEIGHT],
+            keypad_state: [false; Self::KEYPAD_SIZE],
         }
     }
 
@@ -347,20 +354,23 @@ impl Chip8Core {
 }
 
 impl RetroCore for Chip8Core {
-    fn init(_env: &RetroEnvironment) -> Self {
-        Chip8Core::new()
-    }
-
     fn get_system_info() -> RetroSystemInfo {
         RetroSystemInfo::new("CHIP-8 Emulator", "0.1.0")
     }
 
-    fn reset(&mut self, _env: &RetroEnvironment) {
+    fn reset(&mut self, _env: &mut RetroEnvironment) {
 
     }
 
-    fn run(&mut self, _env: &RetroEnvironment, runtime: &RetroRuntime) {
-        // TODO: Get input from user
+    fn run(&mut self, _env: &mut RetroEnvironment, runtime: &RetroRuntime) {
+        let port = 0;
+
+        for (i, key) in Chip8Key::iter().enumerate() {
+            self.keypad_state[i] = runtime.is_keyboard_key_pressed(
+                RetroDevicePort::new(port),
+                key as u32
+            );
+        }
 
         for _ in 0..Self::INSTRUCTIONS_PER_FRAME {
             self.execute_instruction();
@@ -385,12 +395,13 @@ impl RetroCore for Chip8Core {
         // TODO: Upload audio frames
     }
 
-    fn load_game(&mut self, _env: &RetroEnvironment, game: RetroGame) -> RetroLoadGameResult {
-        let mut program_data = Vec::new();
+    fn load_game(_env: &mut RetroEnvironment, game: RetroGame) -> RetroLoadGameResult<Self> {
+        let mut core = Chip8Core::new();
+        let program_data;
 
         match game {
             RetroGame::None { meta: _ } => return RetroLoadGameResult::Failure,
-            RetroGame::Data { meta: _, data } => program_data.extend_from_slice(data),
+            RetroGame::Data { meta: _, data, path: _ } => program_data = data,
             RetroGame::Path { meta: _, path } => {
                 if let Ok(data) = fs::read(path) {
                     program_data = data;
@@ -400,11 +411,14 @@ impl RetroCore for Chip8Core {
             },
         }
 
-        self.cpu.load_program(program_data.as_slice());
+        core.cpu.load_program(program_data.as_slice());
 
         RetroLoadGameResult::Success {
-            audio: RetroAudioInfo::new(0.0),
-            video: RetroVideoInfo::new(Self::FRAME_RATE, 64, 32),
+            region: RetroRegion::NTSC,
+            audio: RetroAudioInfo::new(48000.0),
+            video: RetroVideoInfo::new(Self::FRAME_RATE, 64, 32)
+                .with_pixel_format(RetroPixelFormat::RGB565),
+            core,
         }
     }
 }
