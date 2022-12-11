@@ -511,4 +511,86 @@ mod tests {
 
         assert_eq!(core.cpu.pc, 0x340);
     }
+
+    #[test]
+    fn call_ret() {
+        let mut core = Chip8Core::new();
+
+        let pc = 0x432;
+        let addr = 0x6A2;
+
+        core.cpu.pc = pc;
+        core.call(HashMap::from([("N", addr)]));
+
+        assert_eq!(core.cpu.pc, addr);
+        assert_eq!(core.cpu.stack, vec![pc]);
+
+        core.ret(HashMap::new());
+
+        assert_eq!(core.cpu.pc, pc);
+        assert_eq!(core.cpu.stack, Vec::new());
+    }
+
+    #[test]
+    fn skpeqr() {
+        let mut core = Chip8Core::new();
+
+        let pc = 0x3A0;
+        core.cpu.pc = pc;
+
+        let v = vec![0x42, 0x34, 0x42];
+        core.cpu.registers[0x0] = v[0];
+        core.cpu.registers[0x1] = v[1];
+        core.cpu.registers[0x2] = v[2];
+
+        core.skpeqr(HashMap::from([("X", 0x0), ("Y", 0x1)]));
+        assert_eq!(core.cpu.pc, pc);
+
+        core.skpeqr(HashMap::from([("X", 0x0), ("Y", 0x2)]));
+        assert_eq!(core.cpu.pc, pc + 2);
+    }
+
+    #[test]
+    fn save() {
+        let mut core = Chip8Core::new();
+
+        let i = 0x400 as usize;
+        let v = vec![0x41, 0x9B, 0xEE];
+
+        core.cpu.i_register = i as u16;
+
+        core.cpu.registers[0x0] = v[0];
+        core.cpu.registers[0x1] = v[1];
+        core.cpu.registers[0x2] = v[2];
+
+        core.save(HashMap::from([("X", 0x2)]));
+
+        assert_eq!(core.cpu.memory[i], v[0]);
+        assert_eq!(core.cpu.memory[i + 1], v[1]);
+        assert_eq!(core.cpu.memory[i + 2], v[2]);
+
+        assert_eq!(core.cpu.i_register, (i + 3) as u16);
+    }
+
+    #[test]
+    fn load() {
+        let mut core = Chip8Core::new();
+
+        let i = 0x400 as usize;
+        let v = vec![0x20, 0x45, 0xAF];
+
+        core.cpu.i_register = i as u16;
+
+        core.cpu.memory[i] = v[0];
+        core.cpu.memory[i + 1] = v[1];
+        core.cpu.memory[i + 2] = v[2];
+
+        core.load(HashMap::from([("X", 0x2)]));
+
+        assert_eq!(core.cpu.registers[0x0], v[0]);
+        assert_eq!(core.cpu.registers[0x1], v[1]);
+        assert_eq!(core.cpu.registers[0x2], v[2]);
+
+        assert_eq!(core.cpu.i_register, (i + 3) as u16);
+    }
 }
