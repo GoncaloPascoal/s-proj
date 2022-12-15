@@ -4,6 +4,12 @@
     <h2>Seminars Project - Group 2</h2>
 </div>
 
+## Dependencies
+
+Ensure that you have the following dependencies installed:
+- Clang
+- Rust compiler and `cargo` (https://rustup.rs)
+
 ## Compilation
 
 ```
