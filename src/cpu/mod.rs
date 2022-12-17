@@ -179,6 +179,11 @@ impl Cpu {
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
                 callback: Chip8Core::key,
             },
+            Instruction { // EX9E
+                name: "SKPK",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
+                callback: Chip8Core::skpk,
+            },
             Instruction { // FX1E
                 name: "ADDI",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
@@ -271,6 +276,10 @@ impl Cpu {
             0xB000 => self.instruction("JMPR"),
             0xC000 => self.instruction("RAND"),
             0xD000 => self.instruction("DRAW"),
+            0xE000 => match instruction & 0x00FF {
+                0x009E => self.instruction("SKPK"),
+                _ => nop,
+            }
             0xF000 => match instruction & 0x00FF {
                 0x000A => self.instruction("KEY"),
                 0x001E => self.instruction("ADDI"),
