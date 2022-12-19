@@ -57,7 +57,7 @@ impl Cpu {
             stack: Vec::with_capacity(64),
             store_keypress: None,
             delay_timer: 0,
-            sound_timer: 200,
+            sound_timer: 0,
         }
     }
 
