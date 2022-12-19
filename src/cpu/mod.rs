@@ -39,6 +39,8 @@ pub struct Cpu {
     pub pc: u16,
     pub stack: Vec<u16>,
     pub store_keypress: Option<usize>,
+    pub delay_timer: u8,
+    pub sound_timer: u8,
 }
 
 impl Cpu {
@@ -54,6 +56,8 @@ impl Cpu {
             pc: Self::INITIAL_ADDR,
             stack: Vec::with_capacity(64),
             store_keypress: None,
+            delay_timer: 0,
+            sound_timer: 200,
         }
     }
 
@@ -169,30 +173,35 @@ impl Cpu {
                 arg_masks: HashMap::from([("N", Instruction::HEX_012)]),
                 callback: Chip8Core::jmpr,
             },
+            Instruction { // CXNN
+                name: "RAND",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2), ("N", Instruction::HEX_01)]),
+                callback: Chip8Core::rand,
+            },
             Instruction { // DXYN
                 name: "DRAW",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2), ("Y", Instruction::HEX_1), ("N", Instruction::HEX_0)]),
                 callback: Chip8Core::draw,
-            },
-            Instruction { // FX0A
-                name: "KEY",
-                arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
-                callback: Chip8Core::key,
             },
             Instruction { // EX9E
                 name: "SKPK",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
                 callback: Chip8Core::skpk,
             },
+            Instruction { // FX0A
+                name: "KEY",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
+                callback: Chip8Core::key,
+            },
+            Instruction { // FX18
+                name: "SNDR",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
+                callback: Chip8Core::sndr,
+            },
             Instruction { // FX1E
                 name: "ADDI",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
                 callback: Chip8Core::addi,
-            },
-            Instruction { // CXNN
-                name: "RAND",
-                arg_masks: HashMap::from([("X", Instruction::HEX_2), ("N", Instruction::HEX_01)]),
-                callback: Chip8Core::rand,
             },
             Instruction { // FX33
                 name: "BCD",
@@ -287,6 +296,7 @@ impl Cpu {
             }
             0xF000 => match instruction & 0x00FF {
                 0x000A => self.instruction("KEY"),
+                0x0018 => self.instruction("SNDR"),
                 0x001E => self.instruction("ADDI"),
                 0x0033 => self.instruction("BCD"),
                 0x0055 => self.instruction("SAVE"),

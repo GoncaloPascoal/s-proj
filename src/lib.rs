@@ -21,6 +21,12 @@ pub struct Chip8Core {
     cpu: Cpu,
     frame_buffer: FrameBuffer,
     keypad_state: [bool; Self::KEYPAD_SIZE],
+    wave: [i16; 2 * Self::SAMPLE_RATE as usize],
+    wave_idx: usize,
+}
+
+fn sample_square_wave(amplitude: i16, frequency: f64, t: f64) -> i16 {
+    amplitude * i16::pow(-1, (2.0 * frequency * t).floor() as u32)
 }
 
 impl Chip8Core {
@@ -33,13 +39,33 @@ impl Chip8Core {
     /// to `FRAME_RATE` * `INSTRUCTIONS_PER_FRAME`.
     const INSTRUCTIONS_PER_FRAME: usize = 10;
 
+    /// Audio sample rate in Hertz.
+    const SAMPLE_RATE: f64 = 48000.0;
+    /// Size of a single audio frame in bytes.
+    const AUDIO_FRAME_SIZE: usize = 2 * (Self::SAMPLE_RATE / Self::FRAME_RATE) as usize;
+    /// Amplitude of the square wave.
+    const WAVE_AMPLITUDE: i16 = 1200;
+    /// Frequency of the square wave. For best results, this value should divide
+    /// the audio sample rate.
+    const WAVE_FREQUENCY: f64 = 250.0;
+    /// Maximum value of the wave_idx member field.
+    const MAX_WAVE_IDX: usize = Self::SAMPLE_RATE as usize / Self::AUDIO_FRAME_SIZE;
+
     const KEYPAD_SIZE: usize = 16;
 
     fn new() -> Self {
+        // Precalculate square wave to decrease required computation.
+        let mut wave = [0; 2 * Self::SAMPLE_RATE as usize];
+        for (i, sample) in wave.iter_mut().enumerate() {
+            *sample = sample_square_wave(Self::WAVE_AMPLITUDE, Self::WAVE_FREQUENCY, i as f64 / Self::SAMPLE_RATE); 
+        }
+
         Self {
             cpu: Cpu::new(),
             frame_buffer: [BitArray::ZERO; Chip8Core::SCREEN_HEIGHT],
             keypad_state: [false; Self::KEYPAD_SIZE],
+            wave,
+            wave_idx: 0,
         }
     }
 
@@ -221,6 +247,13 @@ impl Chip8Core {
         self.cpu.i_register = n;
     }
 
+    /// Set sound timer to value of register `VX`.
+    fn sndr(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+
+        self.cpu.sound_timer = self.cpu.registers[x];
+    }
+
     /// Add value of register `VX` to register `I`.
     fn addi(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
@@ -238,7 +271,7 @@ impl Chip8Core {
         self.cpu.store_keypress = Some(x);
     }
 
-    // Skip following instruction if key corresponding to hex value in `VX` is pressed
+    // Skip following instruction if key corresponding to hex value in `VX` is pressed.
     fn skpk(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
 
@@ -399,12 +432,20 @@ impl RetroCore for Chip8Core {
     fn run(&mut self, _env: &mut RetroEnvironment, runtime: &RetroRuntime) {
         let port = 0;
 
+        // Obtain user input
         for (i, key) in Chip8Key::iter().enumerate() {
             self.keypad_state[i] = runtime.is_keyboard_key_pressed(
                 RetroDevicePort::new(port),
                 key as u32
             );
         }
+
+        // Update timers
+        let delay_timer = &mut self.cpu.delay_timer;
+        let sound_timer = &mut self.cpu.sound_timer;
+
+        *delay_timer = delay_timer.saturating_sub(1);
+        *sound_timer = sound_timer.saturating_sub(1);
 
         for _ in 0..Self::INSTRUCTIONS_PER_FRAME {
             if self.cpu.store_keypress.is_some() {
@@ -436,7 +477,14 @@ impl RetroCore for Chip8Core {
         runtime.upload_video_frame(&frame, Self::SCREEN_WIDTH as u32,
             Self::SCREEN_HEIGHT as u32, 2 * Self::SCREEN_WIDTH);
 
-        // TODO: Upload audio frames
+        let idx = self.wave_idx * Self::AUDIO_FRAME_SIZE;
+        self.wave_idx += 1;
+        self.wave_idx %= Self::MAX_WAVE_IDX;
+
+        if self.cpu.sound_timer != 0 {
+            let audio_frame = &self.wave[idx..idx + Self::AUDIO_FRAME_SIZE];
+            runtime.upload_audio_frame(audio_frame);
+        }
     }
 
     fn load_game(_env: &mut RetroEnvironment, game: RetroGame) -> RetroLoadGameResult<Self> {
@@ -459,7 +507,7 @@ impl RetroCore for Chip8Core {
 
         RetroLoadGameResult::Success {
             region: RetroRegion::NTSC,
-            audio: RetroAudioInfo::new(48000.0),
+            audio: RetroAudioInfo::new(Self::SAMPLE_RATE),
             video: RetroVideoInfo::new(Self::FRAME_RATE, 64, 32)
                 .with_pixel_format(RetroPixelFormat::RGB565),
             core,
