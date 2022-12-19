@@ -344,6 +344,22 @@ impl Chip8Core {
         self.cpu.registers[x] = rand & n;
     }
 
+    /// Store BCD equivalent of value stored in register `VX` in memory at
+    /// addresses `I` to `I + 2`.
+    fn bcd(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+
+        let cpu = &mut self.cpu;
+        let x_val = cpu.registers[x];
+
+        for i in 0..=2 {
+            let addr = cpu.i_register as usize + i;
+            let digit = (x_val / u8::pow(10, 2 - i as u32)) % 10;
+
+            cpu.memory[addr] = digit;
+        }
+    }
+
     /// Store values of registers `V0` to `VX` in memory starting at address `I`,
     /// which is set to `I + X + 1` after operation.
     fn save(&mut self, args: HashMap<&'static str, u16>) {

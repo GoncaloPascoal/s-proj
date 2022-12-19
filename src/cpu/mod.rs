@@ -194,6 +194,11 @@ impl Cpu {
                 arg_masks: HashMap::from([("X", Instruction::HEX_2), ("N", Instruction::HEX_01)]),
                 callback: Chip8Core::rand,
             },
+            Instruction { // FX33
+                name: "BCD",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
+                callback: Chip8Core::bcd,
+            },
             Instruction { // FX55
                 name: "SAVE",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
@@ -283,6 +288,7 @@ impl Cpu {
             0xF000 => match instruction & 0x00FF {
                 0x000A => self.instruction("KEY"),
                 0x001E => self.instruction("ADDI"),
+                0x0033 => self.instruction("BCD"),
                 0x0055 => self.instruction("SAVE"),
                 0x0065 => self.instruction("LOAD"),
                 _ => nop,
