@@ -198,6 +198,16 @@ impl Cpu {
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
                 callback: Chip8Core::key,
             },
+            Instruction { // FX07
+                name: "TIMR",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
+                callback: Chip8Core::timr,
+            },
+            Instruction { // FX15
+                name: "DELR",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
+                callback: Chip8Core::delr,
+            },
             Instruction { // FX18
                 name: "SNDR",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
@@ -302,6 +312,8 @@ impl Cpu {
             }
             0xF000 => match instruction & 0x00FF {
                 0x000A => self.instruction("KEY"),
+                0x0007 => self.instruction("TIMR"),
+                0x0015 => self.instruction("DELR"),
                 0x0018 => self.instruction("SNDR"),
                 0x001E => self.instruction("ADDI"),
                 0x0033 => self.instruction("BCD"),

@@ -254,6 +254,20 @@ impl Chip8Core {
         self.cpu.sound_timer = self.cpu.registers[x];
     }
 
+    /// Store current value of delay timer in register `VX`.
+    fn timr(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+
+        self.cpu.registers[x] = self.cpu.delay_timer;
+    }
+
+    /// Set delay timer to value of register `VX`.
+    fn delr(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+
+        self.cpu.delay_timer = self.cpu.registers[x];
+    }
+
     /// Add value of register `VX` to register `I`.
     fn addi(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
