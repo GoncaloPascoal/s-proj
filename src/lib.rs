@@ -242,7 +242,7 @@ impl Chip8Core {
 
     /// Store memory address `NNN` in register `I`.
     fn movi(&mut self, args: HashMap<&'static str, u16>) {
-        let n = *args.get("N").unwrap() as u16;
+        let n = *args.get("N").unwrap();
 
         self.cpu.i_register = n;
     }
@@ -466,7 +466,7 @@ impl RetroCore for Chip8Core {
         }
 
         if let Some(reg) = self.cpu.store_keypress {
-            if let Some(val) = self.keypad_state.iter().position(|&pressed| pressed == true) {
+            if let Some(val) = self.keypad_state.iter().position(|&pressed| pressed) {
                 self.cpu.registers[reg] = val as u8;
                 self.cpu.store_keypress = None;
             }
