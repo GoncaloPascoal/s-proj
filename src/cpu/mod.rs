@@ -188,6 +188,11 @@ impl Cpu {
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
                 callback: Chip8Core::skpk,
             },
+            Instruction { // EXA1
+                name: "SKPNK",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
+                callback: Chip8Core::skpnk,
+            },
             Instruction { // FX0A
                 name: "KEY",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
@@ -292,6 +297,7 @@ impl Cpu {
             0xD000 => self.instruction("DRAW"),
             0xE000 => match instruction & 0x00FF {
                 0x009E => self.instruction("SKPK"),
+                0x00A1 => self.instruction("SKPNK"),
                 _ => nop,
             }
             0xF000 => match instruction & 0x00FF {

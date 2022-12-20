@@ -282,6 +282,17 @@ impl Chip8Core {
         }
     }
 
+    // Skip following instruction if key corresponding to hex value in `VX` is not pressed.
+    fn skpnk(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+
+        let x_val = self.cpu.registers[x] as usize % Self::KEYPAD_SIZE;
+        
+        if !self.keypad_state[x_val] {
+            self.cpu.pc += 2;
+        }
+    }
+
     /// Store value of `VY` in `VX` shifted right one bit. Set `VF` to least
     /// significant bit prior to shift.
     fn shr(&mut self, args: HashMap<&'static str, u16>) {
