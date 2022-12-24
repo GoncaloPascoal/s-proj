@@ -682,6 +682,52 @@ mod tests {
     }
 
     #[test]
+    fn skpk() {
+        let mut core = Chip8Core::new();
+
+        let pc = 0x3A0;
+        core.cpu.pc = pc;
+        
+        let key = 0xB;
+        core.keypad_state[key] = true;
+
+        core.cpu.registers[0x0] = 0x8;
+        core.skpk(HashMap::from([("X", 0x0)]));
+        assert_eq!(core.cpu.pc, pc);
+
+        core.cpu.registers[0x0] = 0xB;
+        core.skpk(HashMap::from([("X", 0x0)]));
+        assert_eq!(core.cpu.pc, pc + 2);
+    }
+
+    #[test]
+    fn timr() {
+        let mut core = Chip8Core::new();
+
+        let val = 0x7A;
+        core.cpu.delay_timer = val;
+
+        core.timr(HashMap::from([("X", 0x2)]));
+        assert_eq!(core.cpu.registers[0x2], val);
+    }
+
+    #[test]
+    fn bcd() {
+        let mut core = Chip8Core::new();
+
+        let i = 0x400 as usize;
+        core.cpu.i_register = i as u16;
+
+        core.cpu.registers[0x4] = 159;
+
+        core.bcd(HashMap::from([("X", 0x4)]));
+
+        assert_eq!(core.cpu.memory[i], 1);
+        assert_eq!(core.cpu.memory[i + 1], 5);
+        assert_eq!(core.cpu.memory[i + 2], 9);
+    }
+
+    #[test]
     fn save() {
         let mut core = Chip8Core::new();
 
