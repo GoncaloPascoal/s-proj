@@ -1,7 +1,7 @@
 
 pub mod disassembler;
 
-use std::collections::HashMap;
+use std::{collections::HashMap};
 use crate::Chip8Core;
 
 pub struct Instruction {
@@ -46,13 +46,35 @@ pub struct Cpu {
 impl Cpu {
     const INITIAL_ADDR: u16 = 0x200;
 
+    const DIGITS: [u8; 80] = [
+        0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+        0x20, 0x60, 0x20, 0x20, 0x70, // 1
+        0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+        0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+        0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+        0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+        0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+        0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+        0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+        0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+        0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+        0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+        0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+        0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+        0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+        0xF0, 0x80, 0xF0, 0x80, 0x80, // F
+    ];
+
     /// Create and initialize a new CPU instance.
     pub fn new() -> Self {
+        let mut memory = [0; 4 * 1024];
+        memory[..80].clone_from_slice(&Self::DIGITS);
+
         Self {
             instructions: Self::create_instructions(),
             registers: [0; 16],
             i_register: 0,
-            memory: [0; 4 * 1024],
+            memory,
             pc: Self::INITIAL_ADDR,
             stack: Vec::with_capacity(64),
             store_keypress: None,
@@ -208,6 +230,11 @@ impl Cpu {
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
                 callback: Chip8Core::delr,
             },
+            Instruction { // FX29
+                name: "DIGIT",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
+                callback: Chip8Core::digit,
+            },
             Instruction { // FX18
                 name: "SNDR",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
@@ -316,6 +343,7 @@ impl Cpu {
                 0x0015 => self.instruction("DELR"),
                 0x0018 => self.instruction("SNDR"),
                 0x001E => self.instruction("ADDI"),
+                0x0029 => self.instruction("DIGIT"),
                 0x0033 => self.instruction("BCD"),
                 0x0055 => self.instruction("SAVE"),
                 0x0065 => self.instruction("LOAD"),

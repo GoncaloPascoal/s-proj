@@ -268,6 +268,14 @@ impl Chip8Core {
         self.cpu.delay_timer = self.cpu.registers[x];
     }
 
+    /// Set `I` to memory address of sprite data corresponding to hex digit stored in register `VX`
+    fn digit(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+
+        let x_val = self.cpu.registers[x] as usize % Self::KEYPAD_SIZE;
+        self.cpu.i_register = (x_val * 5) as u16;
+    }
+
     /// Add value of register `VX` to register `I`.
     fn addi(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
