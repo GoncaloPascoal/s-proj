@@ -208,6 +208,11 @@ impl Cpu {
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
                 callback: Chip8Core::delr,
             },
+            Instruction { // FX29
+                name: "DIGIT",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
+                callback: Chip8Core::digit,
+            },
             Instruction { // FX18
                 name: "SNDR",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
@@ -316,6 +321,7 @@ impl Cpu {
                 0x0015 => self.instruction("DELR"),
                 0x0018 => self.instruction("SNDR"),
                 0x001E => self.instruction("ADDI"),
+                0x0029 => self.instruction("DIGIT"),
                 0x0033 => self.instruction("BCD"),
                 0x0055 => self.instruction("SAVE"),
                 0x0065 => self.instruction("LOAD"),
