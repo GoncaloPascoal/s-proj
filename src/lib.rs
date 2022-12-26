@@ -1,6 +1,6 @@
 
-use std::{collections::HashMap, fs, process};
-use bitvec::{view::BitView, prelude::Msb0};
+use std::{collections::HashMap, fs::File, fs::read, io::Write, io::Read, process};
+use bitvec::{prelude::Msb0, view::BitView};
 use rand::Rng;
 
 use libretro_rs::{libretro_core, RetroCore, RetroEnvironment, RetroGame,
@@ -35,6 +35,12 @@ impl Chip8Core {
 
     const WHITE_COLOR: u16 = 0x9DE2;
     const BLACK_COLOR: u16 = 0x11C2;
+
+    const DIGIT_SIZE: usize = 5;
+    const LARGE_DIGIT_SIZE: usize = 10;
+    const LARGE_DIGIT_OFFSET: usize = 128;
+
+    const FLAGS_FILE: &'static str = "flags.rpl";
 
     /// Number of video frames to display each second. Typically, a rate of 60Hz is used.
     const FRAME_RATE: f64 = 60.0;
@@ -114,17 +120,17 @@ impl Chip8Core {
         }
     }
 
-    /// Exit the interpreter.
+    /// Exit the interpreter. **SUPER-CHIP instruction.**
     fn exit(&mut self, _args: HashMap<&'static str, u16>) {
         process::exit(0);
     }
 
-    /// Disable high-resolution mode.
+    /// Disable high-resolution mode. **SUPER-CHIP instruction.**
     fn lores(&mut self, _args: HashMap<&'static str, u16>) {
         self.high_resolution = false;
     }
 
-    /// Enable high-resolution mode.
+    /// Enable high-resolution mode. **SUPER-CHIP instruction.**
     fn hires(&mut self, _args: HashMap<&'static str, u16>) {
         self.high_resolution = true;
     }
@@ -287,12 +293,21 @@ impl Chip8Core {
         self.cpu.delay_timer = self.cpu.registers[x];
     }
 
-    /// Set `I` to memory address of sprite data corresponding to hex digit stored in register `VX`
+    /// Set `I` to memory address of 5-byte sprite data corresponding to hex digit stored in register `VX`
     fn digit(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
 
         let x_val = self.cpu.registers[x] as usize % Self::KEYPAD_SIZE;
-        self.cpu.i_register = (x_val * 5) as u16;
+        self.cpu.i_register = (x_val * Self::DIGIT_SIZE) as u16;
+    }
+
+    /// Set I to memory address of 10-byte sprite data corresponding to  hex digit stored in register VX.
+    /// Only digits 0-9 have high-resolution sprite representations. **SUPER-CHIP instruction.**
+    fn ldigit(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+
+        let x_val = self.cpu.registers[x] as usize % Self::KEYPAD_SIZE;
+        self.cpu.i_register = (Self::LARGE_DIGIT_OFFSET + x_val * Self::LARGE_DIGIT_SIZE) as u16;
     }
 
     /// Add value of register `VX` to register `I`.
@@ -500,6 +515,28 @@ impl Chip8Core {
             cpu.i_register += 1;
         }
     }
+
+    /// Store values of register `V0` to `VX` from RPL user flags (persistent memory).
+    /// `X` must be less than or equal to 7. **SUPER-CHIP instruction.**
+    fn savef(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+        if x > 7 { return; }
+
+        if let Ok(mut file) = File::create(Self::FLAGS_FILE) {
+            let _ = file.write_all(&self.cpu.registers[0..=x]);
+        }
+    }
+
+    /// Load values of registers `V0` to `VX` to RPL user flags (persistent memory).
+    /// `X` must be less than or equal to 7. **SUPER-CHIP instruction.**
+    fn loadf(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+        if x > 7 { return; }
+
+        if let Ok(mut file) = File::open(Self::FLAGS_FILE) {
+            let _ = file.read_exact(self.cpu.registers[0..=x].as_mut());
+        }
+    }
 }
 
 impl RetroCore for Chip8Core {
@@ -579,7 +616,7 @@ impl RetroCore for Chip8Core {
             RetroGame::None { meta: _ } => return RetroLoadGameResult::Failure,
             RetroGame::Data { meta: _, data, path: _ } => program_data = data,
             RetroGame::Path { meta: _, path } => {
-                if let Ok(data) = fs::read(path) {
+                if let Ok(data) = read(path) {
                     program_data = data;
                 } else {
                     return RetroLoadGameResult::Failure;

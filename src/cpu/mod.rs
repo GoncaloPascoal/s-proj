@@ -1,7 +1,7 @@
 
 pub mod disassembler;
 
-use std::{collections::HashMap};
+use std::collections::HashMap;
 use crate::Chip8Core;
 
 pub struct Instruction {
@@ -65,10 +65,24 @@ impl Cpu {
         0xF0, 0x80, 0xF0, 0x80, 0x80, // F
     ];
 
+    const LARGE_DIGITS: [u8; 100] = [
+        0x3C, 0x7E, 0xE7, 0xC3, 0xC3, 0xC3, 0xC3, 0xE7, 0x7E, 0x3C, // 0
+        0x18, 0x38, 0x68, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x3C, // 1
+        0x3E, 0x7F, 0xC3, 0x06, 0x0C, 0x18, 0x30, 0x60, 0xFF, 0xFF, // 2
+        0x3C, 0x7E, 0xC3, 0x03, 0x0E, 0x0E, 0x03, 0xC3, 0x7E, 0x3C, // 3
+        0x06, 0x0E, 0x1E, 0x36, 0x66, 0xC6, 0xFF, 0xFF, 0x06, 0x06, // 4
+        0xFF, 0xFF, 0xC0, 0xC0, 0xFC, 0xFE, 0x03, 0xC3, 0x7E, 0x3C, // 5
+        0x3E, 0x7C, 0xC0, 0xC0, 0xFC, 0xFE, 0xC3, 0xC3, 0x7E, 0x3C, // 6
+        0xFF, 0xFF, 0x03, 0x06, 0x0C, 0x18, 0x30, 0x60, 0x60, 0x60, // 7
+        0x3C, 0x7E, 0xC3, 0xC3, 0x7E, 0x7E, 0xC3, 0xC3, 0x7E, 0x3C, // 8
+        0x3C, 0x7E, 0xC3, 0xC3, 0x7F, 0x3F, 0x03, 0x03, 0x3E, 0x7C, // 9
+    ];
+
     /// Create and initialize a new CPU instance.
     pub fn new() -> Self {
         let mut memory = [0; 4 * 1024];
         memory[..80].clone_from_slice(&Self::DIGITS);
+        memory[Chip8Core::LARGE_DIGIT_OFFSET..Chip8Core::LARGE_DIGIT_OFFSET + 100].clone_from_slice(&Self::LARGE_DIGITS);
 
         Self {
             instructions: Self::create_instructions(),
@@ -250,6 +264,11 @@ impl Cpu {
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
                 callback: Chip8Core::digit,
             },
+            Instruction {
+                name: "LDIGIT",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
+                callback: Chip8Core::ldigit,
+            },
             Instruction { // FX18
                 name: "SNDR",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
@@ -274,6 +293,16 @@ impl Cpu {
                 name: "LOAD",
                 arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
                 callback: Chip8Core::load,
+            },
+            Instruction { // FX75
+                name: "SAVEF",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
+                callback: Chip8Core::savef,
+            },
+            Instruction { // FX85
+                name: "LOADF",
+                arg_masks: HashMap::from([("X", Instruction::HEX_2)]),
+                callback: Chip8Core::loadf,
             },
         ];
 
@@ -362,9 +391,12 @@ impl Cpu {
                 0x0018 => self.instruction("SNDR"),
                 0x001E => self.instruction("ADDI"),
                 0x0029 => self.instruction("DIGIT"),
+                0x0030 => self.instruction("LDIGIT"),
                 0x0033 => self.instruction("BCD"),
                 0x0055 => self.instruction("SAVE"),
                 0x0065 => self.instruction("LOAD"),
+                0x0075 => self.instruction("SAVEF"),
+                0x0085 => self.instruction("LOADF"),
                 _ => nop,
             },
             _ => nop,
