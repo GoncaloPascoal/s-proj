@@ -1,11 +1,11 @@
 
 use std::{collections::HashMap, fs};
+use bitvec::{view::BitView, prelude::Msb0};
 use rand::Rng;
 
 use libretro_rs::{libretro_core, RetroCore, RetroEnvironment, RetroGame,
     RetroLoadGameResult, RetroRuntime, RetroSystemInfo, RetroAudioInfo,
     RetroVideoInfo, RetroPixelFormat, RetroRegion, RetroDevicePort};
-use bitvec::prelude::*;
 use strum::IntoEnumIterator;
 
 use cpu::Cpu;
@@ -14,12 +14,12 @@ use input::Chip8Key;
 pub mod cpu;
 pub mod input;
 
-type FrameBufferRow = BitArr!(for Chip8Core::SCREEN_WIDTH);
-type FrameBuffer = [FrameBufferRow; Chip8Core::SCREEN_HEIGHT];
+type FrameBuffer = [[bool; Chip8Core::SCREEN_WIDTH]; Chip8Core::SCREEN_HEIGHT];
 
 pub struct Chip8Core {
     cpu: Cpu,
     frame_buffer: FrameBuffer,
+    high_resolution: bool,
     keypad_state: [bool; Self::KEYPAD_SIZE],
     wave: [i16; 2 * Self::SAMPLE_RATE as usize],
     wave_idx: usize,
@@ -30,8 +30,11 @@ fn sample_square_wave(amplitude: i16, frequency: f64, t: f64) -> i16 {
 }
 
 impl Chip8Core {
-    const SCREEN_WIDTH: usize = 64;
-    const SCREEN_HEIGHT: usize = 32;
+    const SCREEN_WIDTH: usize = 128;
+    const SCREEN_HEIGHT: usize = 64;
+
+    const WHITE_COLOR: u16 = 0x9DE2;
+    const BLACK_COLOR: u16 = 0x11C2;
 
     /// Number of video frames to display each second. Typically, a rate of 60Hz is used.
     const FRAME_RATE: f64 = 60.0;
@@ -62,7 +65,8 @@ impl Chip8Core {
 
         Self {
             cpu: Cpu::new(),
-            frame_buffer: [BitArray::ZERO; Chip8Core::SCREEN_HEIGHT],
+            frame_buffer: [[false; Chip8Core::SCREEN_WIDTH]; Chip8Core::SCREEN_HEIGHT],
+            high_resolution: false,
             keypad_state: [false; Self::KEYPAD_SIZE],
             wave,
             wave_idx: 0,
@@ -373,27 +377,40 @@ impl Chip8Core {
         let y = *args.get("Y").unwrap() as usize;
         let n = *args.get("N").unwrap() as usize;
 
-        let x_val = self.cpu.registers[x] as usize % Self::SCREEN_WIDTH;
-        let y_val = self.cpu.registers[y] as usize % Self::SCREEN_HEIGHT;
+        let mut x_val = self.cpu.registers[x] as usize;
+        if !self.high_resolution { x_val *= 2; }
+        x_val %= Self::SCREEN_WIDTH;
+
+        let mut y_val = self.cpu.registers[y] as usize;
+        if !self.high_resolution { y_val *= 2; }
+        y_val %= Self::SCREEN_HEIGHT;
 
         // True if a white pixel was set to black when drawing the sprite.
         let mut black = false;
 
+        let scaling_factor = !self.high_resolution as usize + 1;
+
         for i in 0..n {
-            if y_val + i == Self::SCREEN_HEIGHT {
+            if y_val + i * scaling_factor == Self::SCREEN_HEIGHT {
                 break;
             }
 
             let sprite_data = self.cpu.memory[self.cpu.i_register as usize + i];
-            let row = &mut self.frame_buffer[y_val + i];
-            let width = usize::min(8, Self::SCREEN_WIDTH - x_val);
 
-            for j in 0..width {
-                let mut screen_bit_ref = row.get_mut(x_val + j).unwrap();
-                let sprite_bit = *sprite_data.view_bits::<Msb0>().get(j).unwrap();
+            for offset_i in 0..scaling_factor {
+                let row = &mut self.frame_buffer[y_val + i * scaling_factor + offset_i];
+                let width = usize::min(8, Self::SCREEN_WIDTH - x_val);
 
-                black |= *screen_bit_ref & sprite_bit;
-                screen_bit_ref.set(*screen_bit_ref ^ sprite_bit);
+                for j in 0..width {
+                    let sprite_bit = *sprite_data.view_bits::<Msb0>().get(j).unwrap();
+
+                    for offset_j in 0..scaling_factor {
+                        let screen_bit_ref = &mut row[x_val + j * scaling_factor + offset_j];
+
+                        black |= *screen_bit_ref && sprite_bit;
+                        *screen_bit_ref ^= sprite_bit;
+                    }
+                }
             }
         }
 
@@ -500,8 +517,10 @@ impl RetroCore for Chip8Core {
         for row in &self.frame_buffer {
             for bit in row {
                 if *bit {
-                    frame[i] = 0xFF;
-                    frame[i + 1] = 0xFF;
+                    frame[i..=i + 1].clone_from_slice(&Self::WHITE_COLOR.to_le_bytes());
+                }
+                else {
+                    frame[i..=i + 1].clone_from_slice(&Self::BLACK_COLOR.to_le_bytes());
                 }
                 i += 2;
             }
