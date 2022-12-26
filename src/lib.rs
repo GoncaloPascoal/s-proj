@@ -390,7 +390,16 @@ impl Chip8Core {
     fn draw(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
         let y = *args.get("Y").unwrap() as usize;
-        let n = *args.get("N").unwrap() as usize;
+        let mut n = *args.get("N").unwrap() as usize;
+
+        let mut columns = 8;
+        let draw_large_sprite = self.high_resolution && n == 0;
+        let addr_scaling_factor = draw_large_sprite as usize + 1;
+
+        if draw_large_sprite {
+            n = 16;
+            columns = 16;
+        }
 
         let mut x_val = self.cpu.registers[x] as usize;
         if !self.high_resolution { x_val *= 2; }
@@ -410,11 +419,19 @@ impl Chip8Core {
                 break;
             }
 
-            let sprite_data = self.cpu.memory[self.cpu.i_register as usize + i];
+            let addr = self.cpu.i_register as usize + i * addr_scaling_factor;
+            let sprite_data = u16::from_be_bytes(
+                if draw_large_sprite {
+                    self.cpu.memory[addr..=addr + 1].try_into().unwrap()
+                }
+                else {
+                    [self.cpu.memory[addr], 0x00]
+                }
+            );
 
             for offset_i in 0..scaling_factor {
                 let row = &mut self.frame_buffer[y_val + i * scaling_factor + offset_i];
-                let width = usize::min(8, Self::SCREEN_WIDTH - x_val);
+                let width = usize::min(columns, Self::SCREEN_WIDTH - x_val);
 
                 for j in 0..width {
                     let sprite_bit = *sprite_data.view_bits::<Msb0>().get(j).unwrap();
