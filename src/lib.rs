@@ -1,5 +1,5 @@
 
-use std::{collections::HashMap, fs};
+use std::{collections::HashMap, fs, process};
 use bitvec::{view::BitView, prelude::Msb0};
 use rand::Rng;
 
@@ -114,6 +114,21 @@ impl Chip8Core {
         }
     }
 
+    /// Exit the interpreter.
+    fn exit(&mut self, _args: HashMap<&'static str, u16>) {
+        process::exit(0);
+    }
+
+    /// Disable high-resolution mode.
+    fn lores(&mut self, _args: HashMap<&'static str, u16>) {
+        self.high_resolution = false;
+    }
+
+    /// Enable high-resolution mode.
+    fn hires(&mut self, _args: HashMap<&'static str, u16>) {
+        self.high_resolution = true;
+    }
+    
     /// Skip following instruction if value of register `VX` equals `NN`.
     fn skpeq(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;

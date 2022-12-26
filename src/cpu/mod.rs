@@ -100,6 +100,21 @@ impl Cpu {
                 arg_masks: HashMap::new(),
                 callback: Chip8Core::ret,
             },
+            Instruction { // 00FD
+                name: "EXIT",
+                arg_masks: HashMap::new(),
+                callback: Chip8Core::exit,
+            },
+            Instruction { // 00FE
+                name: "LORES",
+                arg_masks: HashMap::new(),
+                callback: Chip8Core::lores,
+            },
+            Instruction { // 00FF
+                name: "HIRES",
+                arg_masks: HashMap::new(),
+                callback: Chip8Core::hires,
+            },
             Instruction { // 1NNN
                 name: "JMP",
                 arg_masks: HashMap::from([("N", Instruction::HEX_012)]),
@@ -306,6 +321,9 @@ impl Cpu {
             0x0000 => match instruction & 0x00FF {
                 0x00E0 => self.instruction("CLS"),
                 0x00EE => self.instruction("RET"),
+                0x00FD => self.instruction("EXIT"),
+                0x00FE => self.instruction("LORES"),
+                0x00FF => self.instruction("HIRES"),
                 _ => nop,
             },
             0x1000 => self.instruction("JMP"),
