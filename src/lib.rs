@@ -1,5 +1,5 @@
 
-use std::{collections::HashMap, fs::File, fs::read, io::Write, io::Read, process};
+use std::{collections::HashMap, fs::File, fs::read, io::Write, io::Read, process, env};
 use bitvec::{prelude::Msb0, view::BitView};
 use rand::Rng;
 
@@ -23,6 +23,8 @@ pub struct Chip8Core {
     keypad_state: [bool; Self::KEYPAD_SIZE],
     wave: [i16; 2 * Self::SAMPLE_RATE as usize],
     wave_idx: usize,
+    quirk_memory: bool,
+    quirk_shift: bool,
 }
 
 fn sample_square_wave(amplitude: i16, frequency: f64, t: f64) -> i16 {
@@ -65,6 +67,10 @@ impl Chip8Core {
     const KEYPAD_SIZE: usize = 16;
 
     fn new() -> Self {
+        Self::with_quirks(false, false)
+    }
+
+    fn with_quirks(memory: bool, shift: bool) -> Self {
         // Precalculate square wave to decrease required computation.
         let mut wave = [0; 2 * Self::SAMPLE_RATE as usize];
         for (i, sample) in wave.iter_mut().enumerate() {
@@ -78,6 +84,8 @@ impl Chip8Core {
             keypad_state: [false; Self::KEYPAD_SIZE],
             wave,
             wave_idx: 0,
+            quirk_memory: memory,
+            quirk_shift: shift,
         }
     }
 
@@ -384,12 +392,12 @@ impl Chip8Core {
     }
 
     /// Store value of `VY` in `VX` shifted right one bit. Set `VF` to least
-    /// significant bit prior to shift.
+    /// significant bit prior to shift. `VX` is shifted instead if the "shift" quirk is active.
     fn shr(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
         let y = *args.get("Y").unwrap() as usize;
 
-        let y_val = self.cpu.registers[y];
+        let y_val = if self.quirk_shift { self.cpu.registers[x] } else { self.cpu.registers[y] };
 
         // Store least significant bit in VF
         self.cpu.registers[0xF] = y_val & 0x01;
@@ -397,12 +405,12 @@ impl Chip8Core {
     }
 
     /// Store value of `VY` in `VX` shifted left one bit. Set `VF` to most
-    /// significant bit prior to shift.
+    /// significant bit prior to shift. `VX` is shifted instead if the "shift" quirk is active.
     fn shl(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
         let y = *args.get("Y").unwrap() as usize;
 
-        let y_val = self.cpu.registers[y];
+        let y_val = if self.quirk_shift { self.cpu.registers[x] } else { self.cpu.registers[y] };
 
         // Store most significant bit in VF
         self.cpu.registers[0xF] = (y_val & 0x80) >> 7;
@@ -534,28 +542,34 @@ impl Chip8Core {
     }
 
     /// Store values of registers `V0` to `VX` in memory starting at address `I`,
-    /// which is set to `I + X + 1` after operation.
+    /// which is set to `I + X + 1` after operation (unless the "memory" quirk is active).
     fn save(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
 
         let cpu = &mut self.cpu;
 
         for reg in 0..=x {
-            cpu.memory[cpu.i_register as usize] = cpu.registers[reg];
-            cpu.i_register += 1;
+            cpu.memory[cpu.i_register as usize + reg] = cpu.registers[reg];
+        }
+
+        if !self.quirk_memory {
+            cpu.i_register += x as u16 + 1;
         }
     }
 
     /// Fill registers `V0` to `VX` with memory values starting at address I,
-    /// which is set to `I + X + 1` after operation.
+    /// which is set to `I + X + 1` after operation (unless the "memory" quirk is active).
     fn load(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
 
         let cpu = &mut self.cpu;
 
         for reg in 0..=x {
-            cpu.registers[reg] = cpu.memory[cpu.i_register as usize];
-            cpu.i_register += 1;
+            cpu.registers[reg] = cpu.memory[cpu.i_register as usize + reg];
+        }
+
+        if !self.quirk_memory {
+            cpu.i_register += x as u16 + 1;
         }
     }
 
@@ -652,7 +666,13 @@ impl RetroCore for Chip8Core {
     }
 
     fn load_game(_env: &mut RetroEnvironment, game: RetroGame) -> RetroLoadGameResult<Self> {
-        let mut core = Chip8Core::new();
+        let args: Vec<String> = env::args().collect();
+
+        // Quirks
+        let memory = args.iter().any(|s| s == "quirk-memory");
+        let shift = args.iter().any(|s| s == "quirk-shift");
+        
+        let mut core = Chip8Core::with_quirks(memory, shift);
         let program_data;
 
         match game {
