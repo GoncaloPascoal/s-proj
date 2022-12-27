@@ -24,3 +24,16 @@ retroarch -L target/release/libs_proj.so rom.ch8
 ```
 
 Where `rom.ch8` is the path to the ROM file to be executed.
+
+### Quirks
+
+Certain CHIP-8 programs rely on abnormal instruction behaviour (so-called "quirks") to function properly. These quirks can be enabled from the command line by specifying them after the ROM to load. The following quirks are available:
+
+- `quirk-memory`: instructions that write to or read from RAM no longer increment the I register.
+- `quirk-shift`: shift instructions now shift register `VX` directly instead of shifting `VY` and storing the result in `VX` 
+
+As an example, the following command activates both quirks:
+
+```
+retroarch -L target/release/libs_proj.so rom_quirks.ch8 quirk-memory quirk-shift
+```
