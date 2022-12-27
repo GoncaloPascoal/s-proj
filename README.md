@@ -9,6 +9,7 @@
 Ensure that you have the following dependencies installed:
 - Clang
 - Rust compiler and `cargo` (https://rustup.rs)
+- RetroArch (https://www.retroarch.com/)
 
 ## Compilation
 
