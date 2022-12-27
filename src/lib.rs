@@ -33,7 +33,9 @@ impl Chip8Core {
     const SCREEN_WIDTH: usize = 128;
     const SCREEN_HEIGHT: usize = 64;
 
+    /// RGB565 representation of the white (on) pixel color.
     const WHITE_COLOR: u16 = 0x9DE2;
+    /// RGB565 representation of the black (off) pixel color.
     const BLACK_COLOR: u16 = 0x11C2;
 
     const DIGIT_SIZE: usize = 5;
@@ -325,7 +327,7 @@ impl Chip8Core {
         self.cpu.delay_timer = self.cpu.registers[x];
     }
 
-    /// Set `I` to memory address of 5-byte sprite data corresponding to hex digit stored in register `VX`
+    /// Set `I` to memory address of 5-byte sprite data corresponding to hex digit stored in register `VX`.
     fn digit(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
 
