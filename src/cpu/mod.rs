@@ -104,6 +104,12 @@ impl Cpu {
                 arg_masks: HashMap::new(),
                 callback: Chip8Core::nop,
             },
+            Instruction { // 00CN
+                name: "SCD",
+                arg_masks: HashMap::from([("N", Instruction::HEX_0)]),
+                callback: Chip8Core::scd,
+            },
+
             Instruction { // 00E0
                 name: "CLS",
                 arg_masks: HashMap::new(),
@@ -113,6 +119,16 @@ impl Cpu {
                 name: "RET",
                 arg_masks: HashMap::new(),
                 callback: Chip8Core::ret,
+            },
+            Instruction { // 00FB
+                name: "SCR",
+                arg_masks: HashMap::new(),
+                callback: Chip8Core::scr,
+            },
+            Instruction { // 00FC
+                name: "SCL",
+                arg_masks: HashMap::new(),
+                callback: Chip8Core::scl,
             },
             Instruction { // 00FD
                 name: "EXIT",
@@ -348,8 +364,11 @@ impl Cpu {
 
         match instruction & 0xF000 {
             0x0000 => match instruction & 0x00FF {
+                0x00C0..=0x00CF => self.instruction("SCD"),
                 0x00E0 => self.instruction("CLS"),
                 0x00EE => self.instruction("RET"),
+                0x00FB => self.instruction("SCR"),
+                0x00FC => self.instruction("SCL"),
                 0x00FD => self.instruction("EXIT"),
                 0x00FE => self.instruction("LORES"),
                 0x00FF => self.instruction("HIRES"),

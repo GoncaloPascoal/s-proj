@@ -120,6 +120,38 @@ impl Chip8Core {
         }
     }
 
+    /// Scroll display down by `N` pixels, or `N/2` pixels in low-resolution mode.
+    /// **SUPER-CHIP instruction.**
+    fn scd(&mut self, args: HashMap<&'static str, u16>) {
+        let n = *args.get("N").unwrap() as usize % Self::SCREEN_HEIGHT;
+
+        let mut new_buffer = [[false; Chip8Core::SCREEN_WIDTH]; Chip8Core::SCREEN_HEIGHT];
+        new_buffer[n..].copy_from_slice(&self.frame_buffer[..Chip8Core::SCREEN_HEIGHT - n]);
+        self.frame_buffer = new_buffer;
+    }
+
+    /// Scroll display right by 4 pixels, or 2 in low-resolution mode. **SUPER-CHIP instruction.**
+    fn scr(&mut self, _args: HashMap<&'static str, u16>) {
+        let pixels = 4;
+
+        for row in &mut self.frame_buffer {
+            let mut new_row = [false; Chip8Core::SCREEN_WIDTH];
+            new_row[pixels..].copy_from_slice(&row[..Chip8Core::SCREEN_WIDTH - pixels]);
+            *row = new_row;
+        }
+    }
+
+    /// Scroll display left by 4 pixels, or 2 in low-resolution mode. **SUPER-CHIP instruction.**
+    fn scl(&mut self, _args: HashMap<&'static str, u16>) {
+        let pixels = 4;
+
+        for row in &mut self.frame_buffer {
+            let mut new_row = [false; Chip8Core::SCREEN_WIDTH];
+            new_row[..Chip8Core::SCREEN_WIDTH - pixels].copy_from_slice(&row[pixels..]);
+            *row = new_row;
+        }
+    }
+
     /// Exit the interpreter. **SUPER-CHIP instruction.**
     fn exit(&mut self, _args: HashMap<&'static str, u16>) {
         process::exit(0);
@@ -424,15 +456,16 @@ impl Chip8Core {
         if !self.high_resolution { y_val *= 2; }
         y_val %= Self::SCREEN_HEIGHT;
 
-        // True if a white pixel was set to black when drawing the sprite.
-        let mut black = false;
+        /* In low resolution mode, equal to 0x01 if a white pixel was set to black when drawing the sprite.
+           In high resolution mode, equal to the number of sprite rows where this occurred or that were clipped
+           by the bottom of the screen. */
+        let mut black = 0x00;
 
         let scaling_factor = !self.high_resolution as usize + 1;
 
-        for i in 0..n {
-            if y_val + i * scaling_factor == Self::SCREEN_HEIGHT {
-                break;
-            }
+        let height = usize::min(n, (Self::SCREEN_HEIGHT - y_val) / scaling_factor);
+        for i in 0..height {
+            let mut row_black = false;
 
             let addr = self.cpu.i_register as usize + i * addr_scaling_factor;
             let sprite_data = u16::from_be_bytes(
@@ -446,7 +479,7 @@ impl Chip8Core {
 
             for offset_i in 0..scaling_factor {
                 let row = &mut self.frame_buffer[y_val + i * scaling_factor + offset_i];
-                let width = usize::min(columns, Self::SCREEN_WIDTH - x_val);
+                let width = usize::min(columns, (Self::SCREEN_WIDTH - x_val) / scaling_factor);
 
                 for j in 0..width {
                     let sprite_bit = *sprite_data.view_bits::<Msb0>().get(j).unwrap();
@@ -454,14 +487,22 @@ impl Chip8Core {
                     for offset_j in 0..scaling_factor {
                         let screen_bit_ref = &mut row[x_val + j * scaling_factor + offset_j];
 
-                        black |= *screen_bit_ref && sprite_bit;
+                        row_black |= *screen_bit_ref && sprite_bit;
                         *screen_bit_ref ^= sprite_bit;
                     }
                 }
             }
+
+            if self.high_resolution {
+                black += row_black as u8;
+            }
+            else {
+                black |= row_black as u8;
+            }
         }
 
-        self.cpu.registers[0xF] = black as u8;
+        black += (n - height) as u8;
+        self.cpu.registers[0xF] = black;
     }
 
     /// Set `VX` to random number with mask `NN`.
