@@ -1,11 +1,11 @@
 
-use std::{collections::HashMap, fs};
+use std::{collections::HashMap, fs::File, fs::read, io::Write, io::Read, process};
+use bitvec::{prelude::Msb0, view::BitView};
 use rand::Rng;
 
 use libretro_rs::{libretro_core, RetroCore, RetroEnvironment, RetroGame,
     RetroLoadGameResult, RetroRuntime, RetroSystemInfo, RetroAudioInfo,
     RetroVideoInfo, RetroPixelFormat, RetroRegion, RetroDevicePort};
-use bitvec::prelude::*;
 use strum::IntoEnumIterator;
 
 use cpu::Cpu;
@@ -14,12 +14,12 @@ use input::Chip8Key;
 pub mod cpu;
 pub mod input;
 
-type FrameBufferRow = BitArr!(for Chip8Core::SCREEN_WIDTH);
-type FrameBuffer = [FrameBufferRow; Chip8Core::SCREEN_HEIGHT];
+type FrameBuffer = [[bool; Chip8Core::SCREEN_WIDTH]; Chip8Core::SCREEN_HEIGHT];
 
 pub struct Chip8Core {
     cpu: Cpu,
     frame_buffer: FrameBuffer,
+    high_resolution: bool,
     keypad_state: [bool; Self::KEYPAD_SIZE],
     wave: [i16; 2 * Self::SAMPLE_RATE as usize],
     wave_idx: usize,
@@ -30,8 +30,19 @@ fn sample_square_wave(amplitude: i16, frequency: f64, t: f64) -> i16 {
 }
 
 impl Chip8Core {
-    const SCREEN_WIDTH: usize = 64;
-    const SCREEN_HEIGHT: usize = 32;
+    const SCREEN_WIDTH: usize = 128;
+    const SCREEN_HEIGHT: usize = 64;
+
+    /// RGB565 representation of the white (on) pixel color.
+    const WHITE_COLOR: u16 = 0x9DE2;
+    /// RGB565 representation of the black (off) pixel color.
+    const BLACK_COLOR: u16 = 0x11C2;
+
+    const DIGIT_SIZE: usize = 5;
+    const LARGE_DIGIT_SIZE: usize = 10;
+    const LARGE_DIGIT_OFFSET: usize = 128;
+
+    const FLAGS_FILE: &'static str = "flags.rpl";
 
     /// Number of video frames to display each second. Typically, a rate of 60Hz is used.
     const FRAME_RATE: f64 = 60.0;
@@ -62,7 +73,8 @@ impl Chip8Core {
 
         Self {
             cpu: Cpu::new(),
-            frame_buffer: [BitArray::ZERO; Chip8Core::SCREEN_HEIGHT],
+            frame_buffer: [[false; Chip8Core::SCREEN_WIDTH]; Chip8Core::SCREEN_HEIGHT],
+            high_resolution: false,
             keypad_state: [false; Self::KEYPAD_SIZE],
             wave,
             wave_idx: 0,
@@ -110,6 +122,53 @@ impl Chip8Core {
         }
     }
 
+    /// Scroll display down by `N` pixels, or `N/2` pixels in low-resolution mode.
+    /// **SUPER-CHIP instruction.**
+    fn scd(&mut self, args: HashMap<&'static str, u16>) {
+        let n = *args.get("N").unwrap() as usize % Self::SCREEN_HEIGHT;
+
+        let mut new_buffer = [[false; Chip8Core::SCREEN_WIDTH]; Chip8Core::SCREEN_HEIGHT];
+        new_buffer[n..].copy_from_slice(&self.frame_buffer[..Chip8Core::SCREEN_HEIGHT - n]);
+        self.frame_buffer = new_buffer;
+    }
+
+    /// Scroll display right by 4 pixels, or 2 in low-resolution mode. **SUPER-CHIP instruction.**
+    fn scr(&mut self, _args: HashMap<&'static str, u16>) {
+        let pixels = 4;
+
+        for row in &mut self.frame_buffer {
+            let mut new_row = [false; Chip8Core::SCREEN_WIDTH];
+            new_row[pixels..].copy_from_slice(&row[..Chip8Core::SCREEN_WIDTH - pixels]);
+            *row = new_row;
+        }
+    }
+
+    /// Scroll display left by 4 pixels, or 2 in low-resolution mode. **SUPER-CHIP instruction.**
+    fn scl(&mut self, _args: HashMap<&'static str, u16>) {
+        let pixels = 4;
+
+        for row in &mut self.frame_buffer {
+            let mut new_row = [false; Chip8Core::SCREEN_WIDTH];
+            new_row[..Chip8Core::SCREEN_WIDTH - pixels].copy_from_slice(&row[pixels..]);
+            *row = new_row;
+        }
+    }
+
+    /// Exit the interpreter. **SUPER-CHIP instruction.**
+    fn exit(&mut self, _args: HashMap<&'static str, u16>) {
+        process::exit(0);
+    }
+
+    /// Disable high-resolution mode. **SUPER-CHIP instruction.**
+    fn lores(&mut self, _args: HashMap<&'static str, u16>) {
+        self.high_resolution = false;
+    }
+
+    /// Enable high-resolution mode. **SUPER-CHIP instruction.**
+    fn hires(&mut self, _args: HashMap<&'static str, u16>) {
+        self.high_resolution = true;
+    }
+    
     /// Skip following instruction if value of register `VX` equals `NN`.
     fn skpeq(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
@@ -268,12 +327,21 @@ impl Chip8Core {
         self.cpu.delay_timer = self.cpu.registers[x];
     }
 
-    /// Set `I` to memory address of sprite data corresponding to hex digit stored in register `VX`
+    /// Set `I` to memory address of 5-byte sprite data corresponding to hex digit stored in register `VX`.
     fn digit(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
 
         let x_val = self.cpu.registers[x] as usize % Self::KEYPAD_SIZE;
-        self.cpu.i_register = (x_val * 5) as u16;
+        self.cpu.i_register = (x_val * Self::DIGIT_SIZE) as u16;
+    }
+
+    /// Set I to memory address of 10-byte sprite data corresponding to  hex digit stored in register VX.
+    /// Only digits 0-9 have high-resolution sprite representations. **SUPER-CHIP instruction.**
+    fn ldigit(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+
+        let x_val = self.cpu.registers[x] as usize % Self::KEYPAD_SIZE;
+        self.cpu.i_register = (Self::LARGE_DIGIT_OFFSET + x_val * Self::LARGE_DIGIT_SIZE) as u16;
     }
 
     /// Add value of register `VX` to register `I`.
@@ -371,33 +439,72 @@ impl Chip8Core {
     fn draw(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
         let y = *args.get("Y").unwrap() as usize;
-        let n = *args.get("N").unwrap() as usize;
+        let mut n = *args.get("N").unwrap() as usize;
 
-        let x_val = self.cpu.registers[x] as usize % Self::SCREEN_WIDTH;
-        let y_val = self.cpu.registers[y] as usize % Self::SCREEN_HEIGHT;
+        let mut columns = 8;
+        let draw_large_sprite = self.high_resolution && n == 0;
+        let addr_scaling_factor = draw_large_sprite as usize + 1;
 
-        // True if a white pixel was set to black when drawing the sprite.
-        let mut black = false;
+        if draw_large_sprite {
+            n = 16;
+            columns = 16;
+        }
 
-        for i in 0..n {
-            if y_val + i == Self::SCREEN_HEIGHT {
-                break;
+        let mut x_val = self.cpu.registers[x] as usize;
+        if !self.high_resolution { x_val *= 2; }
+        x_val %= Self::SCREEN_WIDTH;
+
+        let mut y_val = self.cpu.registers[y] as usize;
+        if !self.high_resolution { y_val *= 2; }
+        y_val %= Self::SCREEN_HEIGHT;
+
+        /* In low resolution mode, equal to 0x01 if a white pixel was set to black when drawing the sprite.
+           In high resolution mode, equal to the number of sprite rows where this occurred or that were clipped
+           by the bottom of the screen. */
+        let mut black = 0x00;
+
+        let scaling_factor = !self.high_resolution as usize + 1;
+
+        let height = usize::min(n, (Self::SCREEN_HEIGHT - y_val) / scaling_factor);
+        for i in 0..height {
+            let mut row_black = false;
+
+            let addr = self.cpu.i_register as usize + i * addr_scaling_factor;
+            let sprite_data = u16::from_be_bytes(
+                if draw_large_sprite {
+                    self.cpu.memory[addr..=addr + 1].try_into().unwrap()
+                }
+                else {
+                    [self.cpu.memory[addr], 0x00]
+                }
+            );
+
+            for offset_i in 0..scaling_factor {
+                let row = &mut self.frame_buffer[y_val + i * scaling_factor + offset_i];
+                let width = usize::min(columns, (Self::SCREEN_WIDTH - x_val) / scaling_factor);
+
+                for j in 0..width {
+                    let sprite_bit = *sprite_data.view_bits::<Msb0>().get(j).unwrap();
+
+                    for offset_j in 0..scaling_factor {
+                        let screen_bit_ref = &mut row[x_val + j * scaling_factor + offset_j];
+
+                        row_black |= *screen_bit_ref && sprite_bit;
+                        *screen_bit_ref ^= sprite_bit;
+                    }
+                }
             }
 
-            let sprite_data = self.cpu.memory[self.cpu.i_register as usize + i];
-            let row = &mut self.frame_buffer[y_val + i];
-            let width = usize::min(8, Self::SCREEN_WIDTH - x_val);
-
-            for j in 0..width {
-                let mut screen_bit_ref = row.get_mut(x_val + j).unwrap();
-                let sprite_bit = *sprite_data.view_bits::<Msb0>().get(j).unwrap();
-
-                black |= *screen_bit_ref & sprite_bit;
-                screen_bit_ref.set(*screen_bit_ref ^ sprite_bit);
+            if self.high_resolution {
+                black += row_black as u8;
+            }
+            else {
+                black |= row_black as u8;
             }
         }
 
-        self.cpu.registers[0xF] = black as u8;
+        black += (n - height) as u8;
+        self.cpu.registers[0xF] = black;
     }
 
     /// Set `VX` to random number with mask `NN`.
@@ -451,6 +558,28 @@ impl Chip8Core {
             cpu.i_register += 1;
         }
     }
+
+    /// Store values of register `V0` to `VX` from RPL user flags (persistent memory).
+    /// `X` must be less than or equal to 7. **SUPER-CHIP instruction.**
+    fn savef(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+        if x > 7 { return; }
+
+        if let Ok(mut file) = File::create(Self::FLAGS_FILE) {
+            let _ = file.write_all(&self.cpu.registers[0..=x]);
+        }
+    }
+
+    /// Load values of registers `V0` to `VX` to RPL user flags (persistent memory).
+    /// `X` must be less than or equal to 7. **SUPER-CHIP instruction.**
+    fn loadf(&mut self, args: HashMap<&'static str, u16>) {
+        let x = *args.get("X").unwrap() as usize;
+        if x > 7 { return; }
+
+        if let Ok(mut file) = File::open(Self::FLAGS_FILE) {
+            let _ = file.read_exact(self.cpu.registers[0..=x].as_mut());
+        }
+    }
 }
 
 impl RetroCore for Chip8Core {
@@ -500,8 +629,10 @@ impl RetroCore for Chip8Core {
         for row in &self.frame_buffer {
             for bit in row {
                 if *bit {
-                    frame[i] = 0xFF;
-                    frame[i + 1] = 0xFF;
+                    frame[i..=i + 1].clone_from_slice(&Self::WHITE_COLOR.to_le_bytes());
+                }
+                else {
+                    frame[i..=i + 1].clone_from_slice(&Self::BLACK_COLOR.to_le_bytes());
                 }
                 i += 2;
             }
@@ -528,7 +659,7 @@ impl RetroCore for Chip8Core {
             RetroGame::None { meta: _ } => return RetroLoadGameResult::Failure,
             RetroGame::Data { meta: _, data, path: _ } => program_data = data,
             RetroGame::Path { meta: _, path } => {
-                if let Ok(data) = fs::read(path) {
+                if let Ok(data) = read(path) {
                     program_data = data;
                 } else {
                     return RetroLoadGameResult::Failure;
