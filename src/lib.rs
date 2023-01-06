@@ -343,8 +343,8 @@ impl Chip8Core {
         self.cpu.i_register = (x_val * Self::DIGIT_SIZE) as u16;
     }
 
-    /// Set I to memory address of 10-byte sprite data corresponding to  hex digit stored in register VX.
-    /// Only digits 0-9 have high-resolution sprite representations. **SUPER-CHIP instruction.**
+    /// Set `I` to memory address of 10-byte sprite data corresponding to  hex digit stored in register `VX`.
+    /// Only digits `0-9` have high-resolution sprite representations. **SUPER-CHIP instruction.**
     fn ldigit(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
 
@@ -573,7 +573,7 @@ impl Chip8Core {
         }
     }
 
-    /// Store values of register `V0` to `VX` from RPL user flags (persistent memory).
+    /// Store values of register `V0` to `VX` in RPL user flags (persistent memory).
     /// `X` must be less than or equal to 7. **SUPER-CHIP instruction.**
     fn savef(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
@@ -584,7 +584,7 @@ impl Chip8Core {
         }
     }
 
-    /// Load values of registers `V0` to `VX` to RPL user flags (persistent memory).
+    /// Load values of registers `V0` to `VX` from RPL user flags (persistent memory).
     /// `X` must be less than or equal to 7. **SUPER-CHIP instruction.**
     fn loadf(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
