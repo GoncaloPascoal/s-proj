@@ -1,12 +1,12 @@
 
 <div align="center">
-    <h1>Developing a CHIP-8 Emulator with Rust</h1>
+    <h1>OXID-8: a CHIP-8 / S-CHIP Emulator Developed using the Rust Programming Language</h1>
     <h2>Seminars Project - Group 2</h2>
 </div>
 
 ## Dependencies
 
-Ensure that you have the following dependencies installed:
+Ensure that you have the following software installed:
 - Clang
 - Rust compiler and `cargo` (https://rustup.rs)
 - RetroArch (https://www.retroarch.com/)
@@ -20,7 +20,7 @@ cargo build --release
 ## Execution
 
 ```
-retroarch -L target/release/libs_proj.so rom.ch8
+retroarch -L target/release/liboxid_8.so rom.ch8
 ```
 
 Where `rom.ch8` is the path to the ROM file to be executed.
@@ -35,5 +35,5 @@ Certain CHIP-8 programs rely on abnormal instruction behaviour (so-called "quirk
 As an example, the following command activates both quirks:
 
 ```
-retroarch -L target/release/libs_proj.so rom_quirks.ch8 quirk-memory quirk-shift
+retroarch -L target/release/liboxid_8.so rom_quirks.ch8 quirk-memory quirk-shift
 ```
