@@ -109,7 +109,6 @@ impl Cpu {
                 arg_masks: HashMap::from([("N", Instruction::HEX_0)]),
                 callback: Chip8Core::scd,
             },
-
             Instruction { // 00E0
                 name: "CLS",
                 arg_masks: HashMap::new(),
