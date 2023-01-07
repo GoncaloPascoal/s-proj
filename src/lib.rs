@@ -692,7 +692,7 @@ impl RetroCore for Chip8Core {
         RetroLoadGameResult::Success {
             region: RetroRegion::NTSC,
             audio: RetroAudioInfo::new(Self::SAMPLE_RATE),
-            video: RetroVideoInfo::new(Self::FRAME_RATE, 64, 32)
+            video: RetroVideoInfo::new(Self::FRAME_RATE, Self::SCREEN_WIDTH as u32, Self::SCREEN_HEIGHT as u32)
                 .with_pixel_format(RetroPixelFormat::RGB565),
             core,
         }
