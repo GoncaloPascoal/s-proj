@@ -25,6 +25,7 @@ pub struct Chip8Core {
     wave_idx: usize,
     quirk_memory: bool,
     quirk_shift: bool,
+    quirk_collision: bool,
 }
 
 fn sample_square_wave(amplitude: i16, frequency: f64, t: f64) -> i16 {
@@ -50,7 +51,7 @@ impl Chip8Core {
     const FRAME_RATE: f64 = 60.0;
     /// Number of CHIP-8 instruction executed per video frame. Frequency is equal
     /// to `FRAME_RATE` * `INSTRUCTIONS_PER_FRAME`.
-    const INSTRUCTIONS_PER_FRAME: usize = 10;
+    const INSTRUCTIONS_PER_FRAME: usize = 5;
 
     /// Audio sample rate in Hertz.
     const SAMPLE_RATE: f64 = 48000.0;
@@ -67,10 +68,10 @@ impl Chip8Core {
     const KEYPAD_SIZE: usize = 16;
 
     fn new() -> Self {
-        Self::with_quirks(false, false)
+        Self::with_quirks(false, false, false)
     }
 
-    fn with_quirks(memory: bool, shift: bool) -> Self {
+    fn with_quirks(memory: bool, shift: bool, collision: bool) -> Self {
         // Precalculate square wave to decrease required computation.
         let mut wave = [0; 2 * Self::SAMPLE_RATE as usize];
         for (i, sample) in wave.iter_mut().enumerate() {
@@ -86,6 +87,7 @@ impl Chip8Core {
             wave_idx: 0,
             quirk_memory: memory,
             quirk_shift: shift,
+            quirk_collision: collision,
         }
     }
 
@@ -134,6 +136,9 @@ impl Chip8Core {
     /// **SUPER-CHIP instruction.**
     fn scd(&mut self, args: HashMap<&'static str, u16>) {
         let n = *args.get("N").unwrap() as usize % Self::SCREEN_HEIGHT;
+        if n == 0 {
+            return;
+        }
 
         let mut new_buffer = [[false; Chip8Core::SCREEN_WIDTH]; Chip8Core::SCREEN_HEIGHT];
         new_buffer[n..].copy_from_slice(&self.frame_buffer[..Chip8Core::SCREEN_HEIGHT - n]);
@@ -470,12 +475,13 @@ impl Chip8Core {
            In high resolution mode, equal to the number of sprite rows where this occurred or that were clipped
            by the bottom of the screen. */
         let mut black = 0x00;
+        let mut row_black;
 
         let scaling_factor = !self.high_resolution as usize + 1;
 
         let height = usize::min(n, (Self::SCREEN_HEIGHT - y_val) / scaling_factor);
         for i in 0..height {
-            let mut row_black = false;
+            row_black = false;
 
             let addr = self.cpu.i_register as usize + i * addr_scaling_factor;
             let sprite_data = u16::from_be_bytes(
@@ -503,7 +509,7 @@ impl Chip8Core {
                 }
             }
 
-            if self.high_resolution {
+            if self.high_resolution && self.quirk_collision {
                 black += row_black as u8;
             }
             else {
@@ -511,7 +517,9 @@ impl Chip8Core {
             }
         }
 
-        black += (n - height) as u8;
+        if self.quirk_collision {
+            black += (n - height) as u8;
+        }
         self.cpu.registers[0xF] = black;
     }
 
@@ -675,8 +683,9 @@ impl RetroCore for Chip8Core {
         // Quirks
         let memory = args.iter().any(|s| s == "quirk-memory");
         let shift = args.iter().any(|s| s == "quirk-shift");
-        
-        let mut core = Chip8Core::with_quirks(memory, shift);
+        let collision = args.iter().any(|s| s == "quirk-collision");
+
+        let mut core = Chip8Core::with_quirks(memory, shift, collision);
         let program_data;
 
         match game {
