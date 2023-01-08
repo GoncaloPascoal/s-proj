@@ -692,7 +692,7 @@ impl RetroCore for Chip8Core {
         let memory = args.iter().any(|s| s == "quirk-memory");
         let shift = args.iter().any(|s| s == "quirk-shift");
         let collision = args.iter().any(|s| s == "quirk-collision");
-        let resolution = args.iter().any(|s| s == "quirk_resolution");
+        let resolution = args.iter().any(|s| s == "quirk-resolution");
 
         let mut core = Chip8Core::with_quirks(memory, shift, collision, resolution);
         let program_data;
