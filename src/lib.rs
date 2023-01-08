@@ -19,7 +19,7 @@ type FrameBuffer = [[bool; Chip8Core::SCREEN_WIDTH]; Chip8Core::SCREEN_HEIGHT];
 pub struct Chip8Core {
     cpu: Cpu,
     frame_buffer: FrameBuffer,
-    _resolution: bool,
+    high_resolution: bool,
     keypad_state: [bool; Self::KEYPAD_SIZE],
     wave: [i16; 2 * Self::SAMPLE_RATE as usize],
     wave_idx: usize,
@@ -82,7 +82,7 @@ impl Chip8Core {
         Self {
             cpu: Cpu::new(),
             frame_buffer: [[false; Chip8Core::SCREEN_WIDTH]; Chip8Core::SCREEN_HEIGHT],
-            _resolution: false,
+            high_resolution: false,
             keypad_state: [false; Self::KEYPAD_SIZE],
             wave,
             wave_idx: 0,
@@ -176,7 +176,7 @@ impl Chip8Core {
 
     /// Disable -resolution mode. **SUPER-CHIP instruction.**
     fn lores(&mut self, _args: HashMap<&'static str, u16>) {
-        self._resolution = false;
+        self.high_resolution = false;
         if self.quirk_resolution {
             self.cls(HashMap::new());
         }
@@ -184,7 +184,7 @@ impl Chip8Core {
 
     /// Enable -resolution mode. **SUPER-CHIP instruction.**
     fn hires(&mut self, _args: HashMap<&'static str, u16>) {
-        self._resolution = true;
+        self.high_resolution = true;
         if self.quirk_resolution {
             self.cls(HashMap::new());
         }
@@ -462,23 +462,23 @@ impl Chip8Core {
         let y = *args.get("Y").unwrap() as usize;
         let mut n = *args.get("N").unwrap() as usize;
 
-        let scaling_factor = !self._resolution as usize + 1;
+        let scaling_factor = !self.high_resolution as usize + 1;
 
         let mut columns = 8;
-        let draw_large_sprite = n == 0;
+        let draw_large_sprite = self.high_resolution && n == 0;
         let addr_scaling_factor = draw_large_sprite as usize + 1;
 
         if draw_large_sprite {
-            n = if self._resolution { 16 } else { 8 };
+            n = 16;
             columns = 16;
         }
 
         let mut x_val = self.cpu.registers[x] as usize;
-        if !self._resolution { x_val *= 2; }
+        if !self.high_resolution { x_val *= 2; }
         x_val %= Self::SCREEN_WIDTH;
 
         let mut y_val = self.cpu.registers[y] as usize;
-        if !self._resolution { y_val *= 2; }
+        if !self.high_resolution { y_val *= 2; }
         y_val %= Self::SCREEN_HEIGHT;
 
         /* In low resolution mode, equal to 0x01 if a white pixel was set to black when drawing the sprite.
@@ -517,7 +517,7 @@ impl Chip8Core {
                 }
             }
 
-            if self._resolution && self.quirk_collision {
+            if self.high_resolution && self.quirk_collision {
                 black += row_black as u8;
             }
             else {
