@@ -51,7 +51,7 @@ impl Chip8Core {
     const FRAME_RATE: f64 = 60.0;
     /// Number of CHIP-8 instruction executed per video frame. Frequency is equal
     /// to `FRAME_RATE` * `INSTRUCTIONS_PER_FRAME`.
-    const INSTRUCTIONS_PER_FRAME: usize = 5;
+    const INSTRUCTIONS_PER_FRAME: usize = 10;
 
     /// Audio sample rate in Hertz.
     const SAMPLE_RATE: f64 = 48000.0;
