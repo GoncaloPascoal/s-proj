@@ -616,6 +616,9 @@ impl RetroCore for Chip8Core {
             );
         }
 
+        let last_key = self.cpu.last_keypress;
+        self.cpu.last_keypress = last_key.and_then(|k| if self.keypad_state[k] { last_key } else { None });
+
         // Update timers
         let delay_timer = &mut self.cpu.delay_timer;
         let sound_timer = &mut self.cpu.sound_timer;
@@ -631,9 +634,10 @@ impl RetroCore for Chip8Core {
         }
 
         if let Some(reg) = self.cpu.store_keypress {
-            if let Some(val) = self.keypad_state.iter().position(|&pressed| pressed) {
-                self.cpu.registers[reg] = val as u8;
+            if let Some(key) = self.keypad_state.iter().enumerate().position(|(key, pressed)| *pressed && last_key != Some(key)) {
+                self.cpu.registers[reg] = key as u8;
                 self.cpu.store_keypress = None;
+                self.cpu.last_keypress = Some(key);
             }
         }
 

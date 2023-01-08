@@ -39,6 +39,7 @@ pub struct Cpu {
     pub pc: u16,
     pub stack: Vec<u16>,
     pub store_keypress: Option<usize>,
+    pub last_keypress: Option<usize>,
     pub delay_timer: u8,
     pub sound_timer: u8,
 }
@@ -92,6 +93,7 @@ impl Cpu {
             pc: Self::INITIAL_ADDR,
             stack: Vec::with_capacity(64),
             store_keypress: None,
+            last_keypress: None,
             delay_timer: 0,
             sound_timer: 0,
         }
