@@ -23,10 +23,12 @@ pub struct Chip8Core {
     keypad_state: [bool; Self::KEYPAD_SIZE],
     wave: [i16; 2 * Self::SAMPLE_RATE as usize],
     wave_idx: usize,
+    // Quirks
     quirk_memory: bool,
     quirk_shift: bool,
     quirk_collision: bool,
     quirk_resolution: bool,
+    quirk_lores16: bool,
 }
 
 fn sample_square_wave(amplitude: i16, frequency: f64, t: f64) -> i16 {
@@ -69,10 +71,10 @@ impl Chip8Core {
     const KEYPAD_SIZE: usize = 16;
 
     fn new() -> Self {
-        Self::with_quirks(false, false, false, false)
+        Self::with_quirks(false, false, false, false, false)
     }
 
-    fn with_quirks(memory: bool, shift: bool, collision: bool, resolution: bool) -> Self {
+    fn with_quirks(memory: bool, shift: bool, collision: bool, resolution: bool, lores16: bool) -> Self {
         // Precalculate square wave to decrease required computation.
         let mut wave = [0; 2 * Self::SAMPLE_RATE as usize];
         for (i, sample) in wave.iter_mut().enumerate() {
@@ -90,6 +92,7 @@ impl Chip8Core {
             quirk_shift: shift,
             quirk_collision: collision,
             quirk_resolution: resolution,
+            quirk_lores16: lores16,
         }
     }
 
@@ -465,7 +468,7 @@ impl Chip8Core {
         let scaling_factor = !self.high_resolution as usize + 1;
 
         let mut columns = 8;
-        let draw_large_sprite = self.high_resolution && n == 0;
+        let draw_large_sprite = (self.high_resolution || self.quirk_lores16) && n == 0;
         let addr_scaling_factor = draw_large_sprite as usize + 1;
 
         if draw_large_sprite {
@@ -693,8 +696,9 @@ impl RetroCore for Chip8Core {
         let shift = args.iter().any(|s| s == "quirk-shift");
         let collision = args.iter().any(|s| s == "quirk-collision");
         let resolution = args.iter().any(|s| s == "quirk-resolution");
+        let lores16 = args.iter().any(|s| s == "quirk-lores16");
 
-        let mut core = Chip8Core::with_quirks(memory, shift, collision, resolution);
+        let mut core = Chip8Core::with_quirks(memory, shift, collision, resolution, lores16);
         let program_data;
 
         match game {
