@@ -19,13 +19,14 @@ type FrameBuffer = [[bool; Chip8Core::SCREEN_WIDTH]; Chip8Core::SCREEN_HEIGHT];
 pub struct Chip8Core {
     cpu: Cpu,
     frame_buffer: FrameBuffer,
-    high_resolution: bool,
+    _resolution: bool,
     keypad_state: [bool; Self::KEYPAD_SIZE],
     wave: [i16; 2 * Self::SAMPLE_RATE as usize],
     wave_idx: usize,
     quirk_memory: bool,
     quirk_shift: bool,
     quirk_collision: bool,
+    quirk_resolution: bool,
 }
 
 fn sample_square_wave(amplitude: i16, frequency: f64, t: f64) -> i16 {
@@ -68,10 +69,10 @@ impl Chip8Core {
     const KEYPAD_SIZE: usize = 16;
 
     fn new() -> Self {
-        Self::with_quirks(false, false, false)
+        Self::with_quirks(false, false, false, false)
     }
 
-    fn with_quirks(memory: bool, shift: bool, collision: bool) -> Self {
+    fn with_quirks(memory: bool, shift: bool, collision: bool, resolution: bool) -> Self {
         // Precalculate square wave to decrease required computation.
         let mut wave = [0; 2 * Self::SAMPLE_RATE as usize];
         for (i, sample) in wave.iter_mut().enumerate() {
@@ -81,13 +82,14 @@ impl Chip8Core {
         Self {
             cpu: Cpu::new(),
             frame_buffer: [[false; Chip8Core::SCREEN_WIDTH]; Chip8Core::SCREEN_HEIGHT],
-            high_resolution: false,
+            _resolution: false,
             keypad_state: [false; Self::KEYPAD_SIZE],
             wave,
             wave_idx: 0,
             quirk_memory: memory,
             quirk_shift: shift,
             quirk_collision: collision,
+            quirk_resolution: resolution,
         }
     }
 
@@ -172,14 +174,20 @@ impl Chip8Core {
         process::exit(0);
     }
 
-    /// Disable high-resolution mode. **SUPER-CHIP instruction.**
+    /// Disable -resolution mode. **SUPER-CHIP instruction.**
     fn lores(&mut self, _args: HashMap<&'static str, u16>) {
-        self.high_resolution = false;
+        self._resolution = false;
+        if self.quirk_resolution {
+            self.cls(HashMap::new());
+        }
     }
 
-    /// Enable high-resolution mode. **SUPER-CHIP instruction.**
+    /// Enable -resolution mode. **SUPER-CHIP instruction.**
     fn hires(&mut self, _args: HashMap<&'static str, u16>) {
-        self.high_resolution = true;
+        self._resolution = true;
+        if self.quirk_resolution {
+            self.cls(HashMap::new());
+        }
     }
     
     /// Skip following instruction if value of register `VX` equals `NN`.
@@ -349,7 +357,7 @@ impl Chip8Core {
     }
 
     /// Set `I` to memory address of 10-byte sprite data corresponding to  hex digit stored in register `VX`.
-    /// Only digits `0-9` have high-resolution sprite representations. **SUPER-CHIP instruction.**
+    /// Only digits `0-9` have -resolution sprite representations. **SUPER-CHIP instruction.**
     fn ldigit(&mut self, args: HashMap<&'static str, u16>) {
         let x = *args.get("X").unwrap() as usize;
 
@@ -454,27 +462,27 @@ impl Chip8Core {
         let y = *args.get("Y").unwrap() as usize;
         let mut n = *args.get("N").unwrap() as usize;
 
-        let scaling_factor = !self.high_resolution as usize + 1;
+        let scaling_factor = !self._resolution as usize + 1;
 
         let mut columns = 8;
         let draw_large_sprite = n == 0;
         let addr_scaling_factor = draw_large_sprite as usize + 1;
 
         if draw_large_sprite {
-            n = if self.high_resolution { 16 } else { 8 };
+            n = if self._resolution { 16 } else { 8 };
             columns = 16;
         }
 
         let mut x_val = self.cpu.registers[x] as usize;
-        if !self.high_resolution { x_val *= 2; }
+        if !self._resolution { x_val *= 2; }
         x_val %= Self::SCREEN_WIDTH;
 
         let mut y_val = self.cpu.registers[y] as usize;
-        if !self.high_resolution { y_val *= 2; }
+        if !self._resolution { y_val *= 2; }
         y_val %= Self::SCREEN_HEIGHT;
 
         /* In low resolution mode, equal to 0x01 if a white pixel was set to black when drawing the sprite.
-           In high resolution mode, equal to the number of sprite rows where this occurred or that were clipped
+           In  resolution mode, equal to the number of sprite rows where this occurred or that were clipped
            by the bottom of the screen, assuming the "collision quirk" is active. */
         let mut black = 0x00;
         let mut row_black;
@@ -509,7 +517,7 @@ impl Chip8Core {
                 }
             }
 
-            if self.high_resolution && self.quirk_collision {
+            if self._resolution && self.quirk_collision {
                 black += row_black as u8;
             }
             else {
@@ -684,8 +692,9 @@ impl RetroCore for Chip8Core {
         let memory = args.iter().any(|s| s == "quirk-memory");
         let shift = args.iter().any(|s| s == "quirk-shift");
         let collision = args.iter().any(|s| s == "quirk-collision");
+        let resolution = args.iter().any(|s| s == "quirk_resolution");
 
-        let mut core = Chip8Core::with_quirks(memory, shift, collision);
+        let mut core = Chip8Core::with_quirks(memory, shift, collision, resolution);
         let program_data;
 
         match game {

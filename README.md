@@ -32,6 +32,7 @@ Certain CHIP-8 programs rely on abnormal instruction behaviour (so-called "quirk
 - `quirk-memory`: instructions that write to or read from RAM no longer increment the I register.
 - `quirk-shift`: shift instructions now shift register `VX` directly instead of shifting `VY` and storing the result in `VX` 
 - `quirk-collision`: draw sprite instruction now stores the number of sprite rows that collided with an existing sprite or were clipped by the bottom of the screen in register `VF` 
+- `quirk-resolution`: switching between resolutions now clears the frame buffer
 
 As an example, the following command activates both the memory and shift quirks:
 
