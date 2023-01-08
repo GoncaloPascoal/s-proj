@@ -25,6 +25,14 @@ retroarch -L target/release/liboxid_8.so rom.ch8
 
 Where `rom.ch8` is the path to the ROM file to be executed.
 
+### Changing Emulation Speed
+
+By default, the emulation speed is 10 instructions per frame. Since programs run at 60FPS, this corresponds to 600 instructions per second. Certain programs can benefit from a slower / faster emulation speed. Using the `ipf` command-line argument, this value can be changed. For example, the following command will make the emulation run at twice the speed.
+
+```
+retroarch -L target/release/liboxid_8.so rom.ch8 ipf=20
+```
+
 ### Quirks
 
 Certain CHIP-8 programs rely on abnormal instruction behaviour (so-called "quirks") to function properly. These quirks can be enabled from the command line by specifying them after the ROM to load. The following quirks are available:

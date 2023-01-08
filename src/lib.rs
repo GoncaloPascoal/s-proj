@@ -23,6 +23,7 @@ pub struct Chip8Core {
     keypad_state: [bool; Self::KEYPAD_SIZE],
     wave: [i16; 2 * Self::SAMPLE_RATE as usize],
     wave_idx: usize,
+    instructions_per_frame: usize,
     // Quirks
     quirk_memory: bool,
     quirk_shift: bool,
@@ -52,7 +53,7 @@ impl Chip8Core {
 
     /// Number of video frames to display each second. Typically, a rate of 60Hz is used.
     const FRAME_RATE: f64 = 60.0;
-    /// Number of CHIP-8 instruction executed per video frame. Frequency is equal
+    /// Default number of CHIP-8 instruction executed per video frame. Frequency is equal
     /// to `FRAME_RATE` * `INSTRUCTIONS_PER_FRAME`.
     const INSTRUCTIONS_PER_FRAME: usize = 10;
 
@@ -70,11 +71,11 @@ impl Chip8Core {
 
     const KEYPAD_SIZE: usize = 16;
 
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self::with_quirks(false, false, false, false, false)
     }
 
-    fn with_quirks(memory: bool, shift: bool, collision: bool, resolution: bool, lores16: bool) -> Self {
+    pub fn with_quirks(memory: bool, shift: bool, collision: bool, resolution: bool, lores16: bool) -> Self {
         // Precalculate square wave to decrease required computation.
         let mut wave = [0; 2 * Self::SAMPLE_RATE as usize];
         for (i, sample) in wave.iter_mut().enumerate() {
@@ -88,6 +89,7 @@ impl Chip8Core {
             keypad_state: [false; Self::KEYPAD_SIZE],
             wave,
             wave_idx: 0,
+            instructions_per_frame: Self::INSTRUCTIONS_PER_FRAME,
             quirk_memory: memory,
             quirk_shift: shift,
             quirk_collision: collision,
@@ -96,7 +98,11 @@ impl Chip8Core {
         }
     }
 
-    fn execute_instruction(&mut self) {
+    pub fn set_instructions_per_frame(&mut self, v: usize) {
+        self.instructions_per_frame = v;
+    }
+
+    pub fn execute_instruction(&mut self) {
         let raw_instruction = self.cpu.fetch_instruction();
         let instruction = self.cpu.decode_instruction(raw_instruction);
 
@@ -699,8 +705,14 @@ impl RetroCore for Chip8Core {
         let lores16 = args.iter().any(|s| s == "quirk-lores16");
 
         let mut core = Chip8Core::with_quirks(memory, shift, collision, resolution, lores16);
-        let program_data;
 
+        if let Some(ipf_str) = args.iter().find(|s| s.starts_with("ipf=")) {
+            if let Ok(ipf) = ipf_str.split("=").next().unwrap().parse() {
+                core.set_instructions_per_frame(ipf);
+            }
+        }
+
+        let program_data;
         match game {
             RetroGame::None { meta: _ } => return RetroLoadGameResult::Failure,
             RetroGame::Data { meta: _, data, path: _ } => program_data = data,
