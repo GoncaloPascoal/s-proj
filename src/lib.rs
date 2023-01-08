@@ -461,7 +461,7 @@ impl Chip8Core {
         let addr_scaling_factor = draw_large_sprite as usize + 1;
 
         if draw_large_sprite {
-            n = 8 * scaling_factor;
+            n = if self.high_resolution { 16 } else { 8 };
             columns = 16;
         }
 
