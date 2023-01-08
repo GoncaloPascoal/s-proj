@@ -473,7 +473,7 @@ impl Chip8Core {
 
         /* In low resolution mode, equal to 0x01 if a white pixel was set to black when drawing the sprite.
            In high resolution mode, equal to the number of sprite rows where this occurred or that were clipped
-           by the bottom of the screen. */
+           by the bottom of the screen, assuming the "collision quirk" is active. */
         let mut black = 0x00;
         let mut row_black;
 
