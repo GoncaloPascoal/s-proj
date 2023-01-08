@@ -569,7 +569,7 @@ impl Chip8Core {
         }
 
         if !self.quirk_memory {
-            cpu.i_register += x as u16 + 1;
+            cpu.i_register = cpu.i_register.wrapping_add(x as u16 + 1);
         }
     }
 
@@ -585,7 +585,7 @@ impl Chip8Core {
         }
 
         if !self.quirk_memory {
-            cpu.i_register += x as u16 + 1;
+            cpu.i_register = cpu.i_register.wrapping_add(x as u16 + 1);
         }
     }
 
