@@ -454,12 +454,14 @@ impl Chip8Core {
         let y = *args.get("Y").unwrap() as usize;
         let mut n = *args.get("N").unwrap() as usize;
 
+        let scaling_factor = !self.high_resolution as usize + 1;
+
         let mut columns = 8;
-        let draw_large_sprite = self.high_resolution && n == 0;
+        let draw_large_sprite = n == 0;
         let addr_scaling_factor = draw_large_sprite as usize + 1;
 
         if draw_large_sprite {
-            n = 16;
+            n = 8 * scaling_factor;
             columns = 16;
         }
 
@@ -476,8 +478,6 @@ impl Chip8Core {
            by the bottom of the screen, assuming the "collision quirk" is active. */
         let mut black = 0x00;
         let mut row_black;
-
-        let scaling_factor = !self.high_resolution as usize + 1;
 
         let height = usize::min(n, (Self::SCREEN_HEIGHT - y_val) / scaling_factor);
         for i in 0..height {
