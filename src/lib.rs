@@ -33,7 +33,7 @@ pub struct Chip8Core {
 }
 
 fn sample_square_wave(amplitude: i16, frequency: f64, t: f64) -> i16 {
-    amplitude * i16::pow(-1, (2.0 * frequency * t).floor() as u32)
+    amplitude * i16::pow(-1, (frequency * t).floor() as u32)
 }
 
 impl Chip8Core {
@@ -65,7 +65,7 @@ impl Chip8Core {
     const WAVE_AMPLITUDE: i16 = 1200;
     /// Frequency of the square wave. For best results, this value should divide
     /// the audio sample rate.
-    const WAVE_FREQUENCY: f64 = 250.0;
+    const WAVE_FREQUENCY: f64 = 500.0;
     /// Maximum value of the wave_idx member field.
     const MAX_WAVE_IDX: usize = Self::SAMPLE_RATE as usize / Self::AUDIO_FRAME_SIZE;
 
@@ -651,7 +651,7 @@ impl RetroCore for Chip8Core {
         *delay_timer = delay_timer.saturating_sub(1);
         *sound_timer = sound_timer.saturating_sub(1);
 
-        for _ in 0..Self::INSTRUCTIONS_PER_FRAME {
+        for _ in 0..self.instructions_per_frame {
             if self.cpu.store_keypress.is_some() {
                 break;
             }
@@ -707,7 +707,7 @@ impl RetroCore for Chip8Core {
         let mut core = Chip8Core::with_quirks(memory, shift, collision, resolution, lores16);
 
         if let Some(ipf_str) = args.iter().find(|s| s.starts_with("ipf=")) {
-            if let Ok(ipf) = ipf_str.split("=").next().unwrap().parse() {
+            if let Ok(ipf) = ipf_str.split("=").skip(1).next().unwrap().parse() {
                 core.set_instructions_per_frame(ipf);
             }
         }
